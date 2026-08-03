@@ -25,6 +25,13 @@ dist-ssr
 
 # local docs
 concept.md
+.superpowers/
+
+# Ruach vault sidecar (per-vault index db)
+.ruach/
 
 # IDE
 .vscode
+
+# Agents
+.claude/
