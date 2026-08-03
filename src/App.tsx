@@ -1,50 +1,92 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
+import { Button } from "./components/Button";
+import { EditorPane } from "./modules/editor";
+import { PreviewPane } from "./modules/preview";
+import { FileTree } from "./modules/tree";
+import { CommandPalette } from "./modules/command";
+import { TabStrip } from "./modules/tabs";
+import { SettingsPanel } from "./modules/settings";
+import { useUiStore } from "./stores/uiStore";
+import { useThemeStore } from "./stores/themeStore";
+import { useDocStore } from "./stores/docStore";
+import type { LayoutMode } from "./lib/types";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+const MODE_LABEL: Record<LayoutMode, string> = {
+  edit: "编辑",
+  preview: "预览",
+  split: "分屏",
+  immersion: "沉浸",
+};
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+function App() {
+  const layoutMode = useUiStore((s) => s.layoutMode);
+  const setLayoutMode = useUiStore((s) => s.setLayoutMode);
+  const treeVisible = useUiStore((s) => s.treeVisible);
+  const toggleTree = useUiStore((s) => s.toggleTree);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const docTitle = useDocStore((s) => s.meta?.title);
+  const docError = useDocStore((s) => s.error);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Load persisted settings once on mount (P7 wires the rest).
+  useEffect(() => {
+    import("./lib/ipc")
+      .then(({ configLoad }) => configLoad())
+      .then((settings) => setTheme(settings.theme))
+      .catch(() => {});
+  }, [setTheme]);
+
+  const immersion = layoutMode === "immersion";
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div
+      className={`app ${immersion ? "app--immersion" : ""}`}
+      data-theme={theme}
+    >
+      {!immersion && (
+        <header className="topbar">
+          <span className="topbar__title">{docTitle ?? "Ruach"}</span>
+          <div className="topbar__modes" role="group" aria-label="布局模式">
+            {(Object.keys(MODE_LABEL) as LayoutMode[]).map((mode) => (
+              <Button
+                key={mode}
+                active={layoutMode === mode}
+                onClick={() => setLayoutMode(mode)}
+              >
+                {MODE_LABEL[mode]}
+              </Button>
+            ))}
+          </div>
+          <div className="topbar__actions">
+            <Button onClick={toggleTree}>{treeVisible ? "藏树" : "树"}</Button>
+            <Button active={settingsOpen} onClick={() => setSettingsOpen((v) => !v)}>
+              设置
+            </Button>
+          </div>
+        </header>
+      )}
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className="body">
+        {treeVisible && !immersion && <FileTree />}
+
+        <main className="main">
+          {!immersion && <TabStrip />}
+          {docError && <div className="error-banner">{docError.message}</div>}
+          {settingsOpen && !immersion ? (
+            <SettingsPanel />
+          ) : (
+            <div className="pane-stack">
+              {layoutMode !== "preview" && <EditorPane />}
+              {(layoutMode === "preview" || layoutMode === "split") && <PreviewPane />}
+            </div>
+          )}
+        </main>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      <CommandPalette />
+    </div>
   );
 }
 

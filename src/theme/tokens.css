@@ -1,0 +1,56 @@
+/* Design tokens. Three themes share layout tokens; color/type per theme.
+   Switch via data-theme on the root element. */
+
+:root {
+  /* layout */
+  --topbar-h: 40px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --radius: 6px;
+  --immersion-width: 720px;
+}
+
+/* ---- 暖纸 warm paper (default) ---- */
+:root[data-theme="warm_paper"] {
+  --bg: #f6f1e7;
+  --bg-panel: #efe8d6;
+  --bg-raised: #fbf7ee;
+  --text: #3d3629;
+  --text-dim: #6b6150;
+  --text-faint: #b8a98c;
+  --border: #d9cbb0;
+  --accent: #8a6d3b;
+  --font-serif: Georgia, "Songti SC", "STSong", serif;
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ---- 冷石 cold stone ---- */
+:root[data-theme="cold_stone"] {
+  --bg: #f4f4f3;
+  --bg-panel: #ececea;
+  --bg-raised: #fafafa;
+  --text: #26262a;
+  --text-dim: #55555c;
+  --text-faint: #a3a3a3;
+  --border: #dcdcda;
+  --accent: #4d5a68;
+  --font-serif: Georgia, "Songti SC", "STSong", serif;
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ---- 墨夜 night ink ---- */
+:root[data-theme="night_ink"] {
+  --bg: #211f1b;
+  --bg-panel: #26231e;
+  --bg-raised: #2b2822;
+  --text: #e8e2d5;
+  --text-dim: #b4ac9c;
+  --text-faint: #8a816f;
+  --border: #3d392f;
+  --accent: #c9a86a;
+  --font-serif: Georgia, "Songti SC", "STSong", serif;
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
