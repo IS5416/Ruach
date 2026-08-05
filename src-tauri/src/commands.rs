@@ -7,6 +7,7 @@ use crate::services::export::{ExportFormat, ExportService};
 use crate::services::index::IndexService;
 use crate::services::render::RenderService;
 use crate::services::search::{SearchHit, SearchService};
+use crate::services::snapshot::SnapshotService;
 use crate::services::vault::{TreeNode, VaultService};
 use crate::services::window::WindowManager;
 use crate::state::AppState;
@@ -170,12 +171,39 @@ pub fn render_markdown(content: String) -> Result<String, AppError> {
 
 #[tauri::command]
 pub fn export_document(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     rel_path: String,
     format: ExportFormat,
     dest_dir: Option<String>,
 ) -> Result<String, AppError> {
-    ExportService::export(&rel_path, format, dest_dir.as_deref())
+    with_vault(&state, |vault, _| {
+        ExportService::export(vault, &rel_path, format, dest_dir.as_deref())
+    })
+}
+
+#[tauri::command]
+pub fn snapshot_create(
+    state: State<'_, AppState>,
+    rel_path: String,
+) -> Result<i64, AppError> {
+    with_db(&state, |conn| SnapshotService::create(conn, &rel_path))
+}
+
+#[tauri::command]
+pub fn snapshot_restore(
+    state: State<'_, AppState>,
+    rel_path: String,
+    snapshot_at: i64,
+) -> Result<String, AppError> {
+    with_db(&state, |conn| SnapshotService::restore(conn, &rel_path, snapshot_at))
+}
+
+#[tauri::command]
+pub fn snapshot_list(
+    state: State<'_, AppState>,
+    rel_path: String,
+) -> Result<Vec<i64>, AppError> {
+    with_db(&state, |conn| SnapshotService::list(conn, &rel_path))
 }
 
 #[tauri::command]

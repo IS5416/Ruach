@@ -56,6 +56,41 @@ const COMMANDS: Command[] = [
       );
     },
   },
+  {
+    id: "export-html",
+    title: "导出 HTML…",
+    run: () => {
+      const relPath = useDocStore.getState().relPath;
+      if (!relPath) {
+        useUiStore.getState().setStatus("没有打开的文档");
+        return;
+      }
+      void import("@tauri-apps/plugin-dialog").then(async ({ open }) => {
+        const dir = await open({ directory: true });
+        if (typeof dir !== "string") return;
+        const { exportDocument } = await import("../../lib/ipc");
+        try {
+          const out = await exportDocument(relPath, "html", dir);
+          useUiStore.getState().setStatus(`已导出: ${out}`);
+        } catch {
+          useUiStore.getState().setStatus("导出失败");
+        }
+      });
+    },
+  },
+  {
+    id: "export-pdf",
+    title: "导出 PDF…",
+    hint: "通过打印另存为 PDF",
+    run: () => {
+      const frame = document.querySelector<HTMLIFrameElement>(".preview__frame");
+      if (!frame?.contentWindow) {
+        useUiStore.getState().setStatus("先切换到预览模式（打印使用预览内容）");
+        return;
+      }
+      frame.contentWindow.print();
+    },
+  },
 ];
 
 interface Entry {

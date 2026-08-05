@@ -3,7 +3,17 @@ use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Mutex;
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
+
+/// v2: snapshot history (interface reserved — SnapshotService P8+).
+pub const SCHEMA_V2_SQL: &str = r#"
+CREATE TABLE IF NOT EXISTS snapshots (
+  rel_path    TEXT NOT NULL REFERENCES files(rel_path) ON DELETE CASCADE,
+  snapshot_at INTEGER NOT NULL,
+  content     TEXT NOT NULL,
+  PRIMARY KEY (rel_path, snapshot_at)
+);
+"#;
 
 /// Schema for the vault sidecar database. All derived data keyed by
 /// vault-relative path so the vault can move/sync externally.
@@ -47,8 +57,11 @@ fn init_schema(conn: &Connection) -> Result<(), AppError> {
     }
     if version == 0 {
         conn.execute_batch(SCHEMA_SQL)?;
-        conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
     }
+    if version < 2 {
+        conn.execute_batch(SCHEMA_V2_SQL)?;
+    }
+    conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
     Ok(())
 }
 

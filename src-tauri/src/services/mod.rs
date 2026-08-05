@@ -6,5 +6,6 @@ pub mod export;
 pub mod index;
 pub mod render;
 pub mod search;
+pub mod snapshot;
 pub mod vault;
 pub mod window;

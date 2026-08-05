@@ -55,5 +55,10 @@ export const exportDocument = (relPath: string, format: ExportFormat, destDir?: 
 
 export const windowCreate = (relPath?: string) => ipc<void>("window_create", { relPath });
 
+export const snapshotCreate = (relPath: string) => ipc<number>("snapshot_create", { relPath });
+export const snapshotRestore = (relPath: string, snapshotAt: number) =>
+  ipc<string>("snapshot_restore", { relPath, snapshotAt });
+export const snapshotList = (relPath: string) => ipc<number[]>("snapshot_list", { relPath });
+
 export const configLoad = () => ipc<AppSettings>("config_load");
 export const configSave = (settings: AppSettings) => ipc<void>("config_save", { settings });

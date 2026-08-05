@@ -12,6 +12,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;
             let config = ConfigService::new(config_dir.join("settings.json"));
@@ -38,6 +39,9 @@ pub fn run() {
             commands::attach_read,
             commands::render_markdown,
             commands::export_document,
+            commands::snapshot_create,
+            commands::snapshot_restore,
+            commands::snapshot_list,
             commands::window_create,
             commands::config_load,
             commands::config_save,

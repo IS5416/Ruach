@@ -34,7 +34,16 @@ function App() {
   const docTitle = useDocStore((s) => s.meta?.title);
   const docError = useDocStore((s) => s.error);
   const newDraft = useDocStore((s) => s.newDraft);
+  const status = useUiStore((s) => s.status);
+  const setStatus = useUiStore((s) => s.setStatus);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Transient status messages auto-hide after 3s.
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setStatus(null), 3000);
+    return () => clearTimeout(timer);
+  }, [status, setStatus]);
 
   // Load persisted settings once on mount.
   useEffect(() => {
@@ -134,6 +143,8 @@ function App() {
       )}
 
       <RecoveryBanner />
+
+      {status && <div className="status-banner">{status}</div>}
 
       {immersion && (
         <button className="immersion-exit" onClick={() => setLayoutMode("edit")} title="退出沉浸（Ctrl+E）">

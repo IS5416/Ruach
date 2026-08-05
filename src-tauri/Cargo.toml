@@ -26,4 +26,5 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 thiserror = "2"
 comrak = { version = "0.30", default-features = false }
 base64 = "0.22"
+tauri-plugin-dialog = "2.7.2"
 
