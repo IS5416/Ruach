@@ -236,6 +236,14 @@ body {
 
 /* ================= editor (paper) ================= */
 
+.editor-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .editor {
   flex: 1;
   min-height: 0;
@@ -339,6 +347,15 @@ body {
   gap: var(--space-4);
   text-align: center;
   padding: var(--space-6);
+}
+
+/* Empty state layered over the (always-mounted) editor container. */
+.empty-state--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--bg);
+  animation: unroll var(--dur-2) var(--ease);
 }
 
 .empty-state__title {

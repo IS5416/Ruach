@@ -133,7 +133,9 @@ function App() {
   }, []);
 
   // Cross-window sync: reload the doc when another window saved it.
+  // Skipped in a plain browser (no Tauri event runtime).
   useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
     let unlisten: (() => void) | undefined;
     let disposed = false;
     void listen<string>("doc:changed", (event) => {
@@ -152,10 +154,19 @@ function App() {
   }, []);
 
   const openVault = async () => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const dir = await open({ directory: true });
-    if (typeof dir === "string") {
-      await useVaultStore.getState().openVault(dir);
+    // Plain-browser visit: the dialog plugin has no IPC runtime.
+    if (!("__TAURI_INTERNALS__" in window)) {
+      setStatus("此页面在浏览器中打开，无法调用桌面功能；请用 npm run tauri dev 运行");
+      return;
+    }
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const dir = await open({ directory: true });
+      if (typeof dir === "string") {
+        await useVaultStore.getState().openVault(dir);
+      }
+    } catch {
+      setStatus("打开 Vault 失败");
     }
   };
 

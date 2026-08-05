@@ -16,6 +16,13 @@ import type {
  * envelope `{ code, message }` becomes a RuachError on the JS side.
  */
 export async function ipc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  // Plain-browser visit (vite dev without the Tauri shell): no IPC runtime.
+  if (!("__TAURI_INTERNALS__" in window)) {
+    throw new RuachError(
+      "no_tauri",
+      "此页面在浏览器中打开，无法调用桌面功能；请用 npm run tauri dev 运行",
+    );
+  }
   try {
     return await invoke<T>(cmd, args);
   } catch (e) {
