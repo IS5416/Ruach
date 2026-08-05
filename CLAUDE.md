@@ -12,7 +12,7 @@ Tauri 2 + React 19 + TypeScript desktop app (Vite 7 frontend, Rust backend). Pro
 - `npm run tauri build` — release bundle (add `--debug` for debug build)
 - `npm run tauri` — pass-through to Tauri CLI (`tauri add`, `tauri icon`, etc.)
 
-No test suite configured yet.
+Tests: Rust service layer has unit tests (`cargo test` in `src-tauri/`); no frontend test framework yet.
 
 ## Architecture
 

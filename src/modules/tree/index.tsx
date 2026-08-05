@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type UIEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
 import { useVaultStore } from "../../stores/vaultStore";
 import { useDocStore } from "../../stores/docStore";
 import type { TreeNode } from "../../lib/types";
@@ -12,6 +12,9 @@ type Row = { key: string; depth: number; node: TreeNode };
 function buildTree(flat: TreeNode[]): TreeNode[] {
   const roots: TreeNode[] = [];
   const dirs = new Map<string, TreeNode[]>();
+  // Index dirs once so attaching children is O(1) per bucket, not a
+  // linear scan per dir (O(D×F) → O(N)).
+  const dirIndex = new Map<string, TreeNode>();
 
   const getBucket = (dir: string): TreeNode[] => {
     if (dir === "") return roots;
@@ -24,6 +27,7 @@ function buildTree(flat: TreeNode[]): TreeNode[] {
   };
 
   for (const node of flat) {
+    if (node.is_dir) dirIndex.set(node.rel_path, node);
     const slash = node.rel_path.lastIndexOf("/");
     const dir = slash < 0 ? "" : node.rel_path.slice(0, slash);
     getBucket(dir).push(node);
@@ -31,7 +35,7 @@ function buildTree(flat: TreeNode[]): TreeNode[] {
 
   // Attach children to dir nodes in a stable order (dirs before files).
   for (const [dir, bucket] of dirs) {
-    const dirNode = flat.find((n) => n.is_dir && n.rel_path === dir);
+    const dirNode = dirIndex.get(dir);
     if (dirNode) {
       (dirNode as unknown as { children?: TreeNode[] }).children = bucket;
     }
@@ -85,16 +89,22 @@ export function FileTree() {
     });
   };
 
-  const onContainerRef = (el: HTMLDivElement | null) => {
+  // Stable callback — an inline arrow here would re-fire on every render
+  // (every scroll) and pile up observers.
+  const onContainerRef = useCallback((el: HTMLDivElement | null) => {
     containerRef.current = el;
-    if (el) {
-      setViewportH(el.clientHeight);
-      // Re-measure on resize (simple observer, no layout lib).
-      const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
-      ro.observe(el);
-      (el as unknown as { __ro?: ResizeObserver }).__ro = ro;
-    }
-  };
+    if (el) setViewportH(el.clientHeight);
+  }, []);
+
+  // ResizeObserver lifecycle tied to the container's presence; disconnects
+  // on unmount / tree hide.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (tree.length === 0) {
     return <nav className="tree" aria-label="文件树"><p className="tree__empty">打开一个 Vault 开始</p></nav>;

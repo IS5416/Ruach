@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDocStore } from "../../stores/docStore";
 import { useThemeStore } from "../../stores/themeStore";
 import { useUiStore } from "../../stores/uiStore";
+import { useVaultStore } from "../../stores/vaultStore";
 
 const RENDER_DEBOUNCE_MS = 300;
 
@@ -9,21 +10,43 @@ const RENDER_DEBOUNCE_MS = 300;
  * Vault attachments are referenced by relative path (`attachments/x.png`).
  * The sandboxed iframe cannot load them directly, so each is read through
  * attach_read and inlined as a data URL.
+ *
+ * Attachments are immutable on disk, so data URLs are cached per
+ * (vault, rel_path) — re-reading them on every keystroke would push MBs
+ * over IPC in split mode.
  */
-async function inlineAttachments(html: string): Promise<string> {
+const attachCache = new Map<string, Promise<string>>();
+let attachCacheVault: string | null = null;
+
+async function inlineAttachments(html: string, vaultPath: string | null): Promise<string> {
   const refs = [...html.matchAll(/src="(attachments\/[^"]+)"/g)].map((m) => m[1]);
   if (refs.length === 0) return html;
   const unique = [...new Set(refs)];
+  // Cache is per-vault: the same rel_path may exist in two vaults.
+  if (attachCacheVault !== vaultPath) {
+    attachCache.clear();
+    attachCacheVault = vaultPath;
+  }
   const resolved = new Map<string, string>();
   const { attachRead } = await import("../../lib/ipc");
   await Promise.all(
     unique.map(async (p) => {
-      try {
-        const d = await attachRead(p);
-        resolved.set(p, `data:${d.mime};base64,${d.base64}`);
-      } catch {
-        // Leave a broken image rather than failing the whole preview.
+      const key = `${vaultPath ?? ""}:${p}`;
+      let entry = attachCache.get(key);
+      if (!entry) {
+        entry = (async () => {
+          try {
+            const d = await attachRead(p);
+            return `data:${d.mime};base64,${d.base64}`;
+          } catch {
+            // Broken reference — cache the miss so we don't retry on
+            // every keystroke; the image stays broken.
+            return "";
+          }
+        })();
+        attachCache.set(key, entry);
       }
+      resolved.set(p, await entry);
     }),
   );
   return html.replace(/src="(attachments\/[^"]+)"/g, (_, p: string) => {
@@ -126,28 +149,45 @@ export function PreviewPane() {
   const content = useDocStore((s) => s.content);
   const relPath = useDocStore((s) => s.relPath);
   const theme = useThemeStore((s) => s.theme);
+  const fontPreset = useThemeStore((s) => s.fontPreset);
+  const lineHeight = useThemeStore((s) => s.lineHeight);
+  const pageWidth = useThemeStore((s) => s.pageWidth);
   const layoutMode = useUiStore((s) => s.layoutMode);
+  const vaultPath = useVaultStore((s) => s.vaultPath);
   const [body, setBody] = useState("");
   const [rendering, setRendering] = useState(false);
+  // Monotonic render id — a late response from an older render must not
+  // clobber a newer one (fast typing, slow attachment reads).
+  const renderSeq = useRef(0);
 
   useEffect(() => {
     if (!relPath) {
       setBody("");
       return;
     }
+    const seq = ++renderSeq.current;
     setRendering(true);
     const timer = setTimeout(() => {
       import("../../lib/ipc")
         .then(({ renderMarkdown }) => renderMarkdown(content))
-        .then(inlineAttachments)
-        .then(setBody)
-        .catch(() => setBody("<p>渲染失败</p>"))
-        .finally(() => setRendering(false));
+        .then((html) => inlineAttachments(html, vaultPath))
+        .then((b) => {
+          if (renderSeq.current === seq) setBody(b);
+        })
+        .catch(() => {
+          if (renderSeq.current === seq) setBody("<p>渲染失败</p>");
+        })
+        .finally(() => {
+          if (renderSeq.current === seq) setRendering(false);
+        });
     }, RENDER_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [content, relPath]);
+  }, [content, relPath, vaultPath]);
 
-  const srcDoc = useMemo(() => buildSrcDoc(body, themeCss()), [body, theme]);
+  // themeCss() reads the root CSS variables set from the typography
+  // settings — subscribe to them so the iframe style refreshes when they
+  // change, not only on the next body change.
+  const srcDoc = useMemo(() => buildSrcDoc(body, themeCss()), [body, theme, fontPreset, lineHeight, pageWidth]);
 
   if (!relPath) {
     return (

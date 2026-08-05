@@ -47,7 +47,7 @@ export function RecoveryBanner() {
   };
 
   return (
-    <div className="recovery">
+    <div className="recovery" aria-live="polite">
       <span className="recovery__title">恢复区</span>
       {items.map((item) => (
         <div key={item.doc_key} className="recovery__item">

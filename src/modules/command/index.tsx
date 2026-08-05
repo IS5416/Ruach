@@ -113,6 +113,10 @@ export function CommandPalette() {
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+  // Monotonic search id: a late response from an older query must not
+  // overwrite the results of the current one.
+  const searchSeq = useRef(0);
 
   const entries = useMemo<Entry[]>(() => {
     const q = query.trim().toLowerCase();
@@ -140,13 +144,18 @@ export function CommandPalette() {
     return [...commands, ...docs];
   }, [query, hits]);
 
-  // Reset state each time the palette opens.
+  // Reset state each time the palette opens; remember the trigger element
+  // so focus can be returned on close (keyboard users stay oriented).
   useEffect(() => {
     if (open) {
       setQuery("");
       setHits([]);
       setSelected(0);
+      lastFocusedRef.current = document.activeElement as HTMLElement | null;
       inputRef.current?.focus();
+    } else {
+      lastFocusedRef.current?.focus();
+      lastFocusedRef.current = null;
     }
   }, [open]);
 
@@ -157,11 +166,16 @@ export function CommandPalette() {
       setHits([]);
       return;
     }
+    const seq = ++searchSeq.current;
     const timer = setTimeout(() => {
       import("../../lib/ipc")
         .then(({ searchQuery }) => searchQuery(q))
-        .then(setHits)
-        .catch(() => setHits([]));
+        .then((hits) => {
+          if (searchSeq.current === seq) setHits(hits);
+        })
+        .catch(() => {
+          if (searchSeq.current === seq) setHits([]);
+        });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query, open]);
@@ -185,15 +199,26 @@ export function CommandPalette() {
     } else if (e.key === "Enter") {
       e.preventDefault();
       runSelected();
+    } else if (e.key === "Tab") {
+      // Only the input is focusable inside the panel — keep Tab inside
+      // instead of leaking to the page behind the overlay.
+      e.preventDefault();
     } else if (e.key === "Escape") {
       setOpen(false);
     }
   };
 
   if (!open) return null;
+  const selectedEntry = entries[selected];
   return (
     <div className="palette-overlay" onClick={() => setOpen(false)}>
-      <div className="palette" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="命令面板"
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           ref={inputRef}
           className="palette__input"
@@ -201,10 +226,15 @@ export function CommandPalette() {
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
           onKeyDown={onKeyDown}
-          aria-label="命令面板"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls="palette-list"
+          aria-activedescendant={
+            selectedEntry ? `palette-opt-${selected}` : undefined
+          }
         />
         {entries.length > 0 && (
-          <ul className="palette__list" role="listbox">
+          <ul id="palette-list" className="palette__list" role="listbox">
             {entries.map((entry, i) => {
               const group = entry.key.startsWith("doc:") ? "文档" : "命令";
               const groupChanged =
@@ -213,6 +243,7 @@ export function CommandPalette() {
                 <li key={entry.key}>
                   {groupChanged && <p className="palette__group-label">{group}</p>}
                   <div
+                    id={`palette-opt-${i}`}
                     role="option"
                     aria-selected={i === selected}
                     className={`palette__item${i === selected ? " palette__item--selected" : ""}`}

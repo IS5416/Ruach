@@ -20,6 +20,8 @@ pub enum AppError {
     Window(String),
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
+    #[error("vault database version {found} is newer than app version {max}")]
+    SchemaVersion { found: i64, max: i64 },
     #[error("parse error: {0}")]
     Parse(String),
     #[error("not implemented yet: {0}")]
@@ -39,6 +41,7 @@ impl AppError {
             Self::InvalidPath(_) => "invalid_path",
             Self::Vault(_) => "vault",
             Self::Window(_) => "window",
+            Self::SchemaVersion { .. } => "schema_version",
             Self::Parse(_) => "parse",
             Self::NotImplemented(_) => "not_implemented",
             Self::Other(_) => "internal",

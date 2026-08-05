@@ -53,7 +53,15 @@ impl ConfigService {
 
     pub fn load(&self) -> Result<AppSettings, AppError> {
         match fs::read_to_string(&self.path) {
-            Ok(raw) => serde_json::from_str(&raw).map_err(|e| AppError::Parse(e.to_string())),
+            Ok(raw) => match serde_json::from_str(&raw) {
+                Ok(settings) => Ok(settings),
+                Err(e) => {
+                    // Corrupt/truncated file (crash mid-write) — fall back
+                    // to defaults rather than bricking the settings UI.
+                    eprintln!("ruach: settings.json unreadable, using defaults: {e}");
+                    Ok(AppSettings::default())
+                }
+            },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(AppSettings::default()),
             Err(e) => Err(e.into()),
         }
@@ -64,7 +72,11 @@ impl ConfigService {
             fs::create_dir_all(dir)?;
         }
         let raw = serde_json::to_string_pretty(settings)?;
-        fs::write(&self.path, raw)?;
+        // Atomic replace (temp + rename) like DocumentService::save — a
+        // crash must not leave a truncated settings file behind.
+        let tmp = self.path.with_extension(format!("json.tmp"));
+        fs::write(&tmp, raw)?;
+        fs::rename(&tmp, &self.path)?;
         Ok(())
     }
 

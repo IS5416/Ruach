@@ -5,7 +5,8 @@ use rusqlite::Connection;
 pub struct SearchHit {
     pub rel_path: String,
     pub title: String,
-    /// 1 = title match, 0 = body match. Frontend sorts by this.
+    /// 1 = title match, 0 = body match. Rows are already sorted by the
+    /// Rust side (score DESC, then FTS rank).
     pub score: u8,
 }
 
@@ -53,10 +54,16 @@ impl SearchService {
     }
 
     fn like_query(conn: &Connection, q: &str) -> Result<Vec<SearchHit>, AppError> {
-        let pattern = format!("%{q}%");
+        // Escape LIKE wildcards so a literal % or _ in the query doesn't
+        // match every row.
+        let escaped = q
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+        let pattern = format!("%{escaped}%");
         let mut stmt = conn.prepare(
             "SELECT rel_path, title, (title LIKE ?1) AS score
-             FROM docs_fts WHERE title LIKE ?1 OR body LIKE ?1
+             FROM docs_fts WHERE title LIKE ?1 ESCAPE '\\' OR body LIKE ?1 ESCAPE '\\'
              ORDER BY score DESC
              LIMIT ?2",
         )?;

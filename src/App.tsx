@@ -178,6 +178,7 @@ function App() {
               <button
                 key={mode}
                 className={`segmented__btn${layoutMode === mode ? " segmented__btn--active" : ""}`}
+                aria-pressed={layoutMode === mode}
                 onClick={() => setLayoutMode(mode)}
               >
                 {MODE_LABEL[mode]}
@@ -197,7 +198,11 @@ function App() {
 
       <RecoveryBanner />
 
-      {status && <div className="status-banner">{status}</div>}
+      {status && (
+        <div className="status-banner" role="status">
+          {status}
+        </div>
+      )}
 
       {immersion && (
         <button className="immersion-exit" onClick={() => setLayoutMode("edit")} title="退出沉浸（Ctrl+E）">

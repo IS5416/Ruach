@@ -24,7 +24,7 @@ fn with_vault<T>(
     let vault = state
         .vault
         .lock()
-        .expect("vault mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .clone()
         .ok_or_else(|| AppError::Vault("no vault open".to_string()))?;
     with_db(state, |conn| f(&vault, conn))
@@ -36,7 +36,7 @@ fn with_db<T>(
     state: &State<'_, AppState>,
     f: impl FnOnce(&rusqlite::Connection) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
-    let guard = state.db.lock().expect("db mutex poisoned");
+    let guard = state.db.lock().unwrap_or_else(|e| e.into_inner());
     let db = guard
         .as_ref()
         .ok_or_else(|| AppError::Vault("no vault open".to_string()))?;
@@ -49,8 +49,8 @@ pub fn vault_open(state: State<'_, AppState>, path: String) -> Result<(), AppErr
     let vault = PathBuf::from(&path);
     VaultService::validate(&vault)?;
     let db = Database::open(VaultService::sidecar_path(&vault))?;
-    *state.db.lock().expect("db mutex poisoned") = Some(db);
-    *state.vault.lock().expect("vault mutex poisoned") = Some(vault);
+    *state.db.lock().unwrap_or_else(|e| e.into_inner()) = Some(db);
+    *state.vault.lock().unwrap_or_else(|e| e.into_inner()) = Some(vault);
     Ok(())
 }
 
@@ -139,8 +139,12 @@ pub fn index_file(state: State<'_, AppState>, rel_path: String) -> Result<(), Ap
 }
 
 #[tauri::command]
-pub fn index_reindex(state: State<'_, AppState>) -> Result<u32, AppError> {
-    with_vault(&state, |vault, conn| IndexService::reindex(conn, vault))
+pub fn index_reindex(app: AppHandle, state: State<'_, AppState>) -> Result<u32, AppError> {
+    let res = with_vault(&state, |vault, conn| IndexService::reindex(conn, vault));
+    if let Ok(count) = &res {
+        let _ = app.emit("index:updated", count);
+    }
+    res
 }
 
 #[tauri::command]
@@ -220,7 +224,7 @@ pub fn window_create(
     let vault = state
         .vault
         .lock()
-        .expect("vault mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .clone()
         .map(|p| p.to_string_lossy().into_owned());
     WindowManager::create_window(&app, rel_path.as_deref(), vault.as_deref())

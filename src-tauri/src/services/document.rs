@@ -120,9 +120,16 @@ impl DocumentService {
             .file_name()
             .and_then(|n| n.to_str())
             .ok_or_else(|| AppError::InvalidPath(rel_path.to_string()))?;
-        let tmp = dir.join(format!(".{file_name}.ruach-tmp"));
+        // Process id keeps the temp name unique — a stale fixed name could
+        // silently clobber a user file that happens to match it.
+        let tmp = dir.join(format!(".{file_name}.ruach-tmp-{}", std::process::id()));
         fs::write(&tmp, content)?;
-        fs::rename(&tmp, &abs)?;
+        if let Err(e) = fs::rename(&tmp, &abs) {
+            // Best-effort cleanup: don't leave a temp file with user
+            // content behind on a failed rename.
+            let _ = fs::remove_file(&tmp);
+            return Err(e.into());
+        }
 
         conn.execute("DELETE FROM sessions WHERE doc_key = ?1", [rel_path])?;
 
@@ -188,7 +195,12 @@ impl DocumentService {
                 })
             },
         )
-        .map_err(|_| AppError::NotFound(doc_key.to_string()))
+        .map_err(|e| match e {
+            // Only a missing row means "not found" — real DB errors should
+            // surface as such instead of masquerading.
+            rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(doc_key.to_string()),
+            other => AppError::Db(other),
+        })
     }
 
     pub fn session_discard(conn: &rusqlite::Connection, doc_key: &str) -> Result<(), AppError> {

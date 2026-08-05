@@ -42,7 +42,9 @@ impl Database {
     }
 
     pub fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().expect("db mutex poisoned")
+        // Tolerate poisoning: the connection state itself is harmless, and
+        // a panicking command must not brick every later one.
+        self.conn.lock().unwrap_or_else(|e| e.into_inner())
     }
 }
 
@@ -51,9 +53,12 @@ fn init_schema(conn: &Connection) -> Result<(), AppError> {
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if version > SCHEMA_VERSION {
-        return Err(AppError::Db(rusqlite::Error::InvalidColumnName(
-            format!("database version {version} newer than app version {SCHEMA_VERSION}"),
-        )));
+        // A vault created by a newer app build — the frontend can map this
+        // to a friendly "vault is from a newer version" hint.
+        return Err(AppError::SchemaVersion {
+            found: version,
+            max: SCHEMA_VERSION,
+        });
     }
     if version == 0 {
         conn.execute_batch(SCHEMA_SQL)?;

@@ -24,7 +24,7 @@ npm run tauri build     # 发布构建
 cargo test              # Rust 服务层测试（在 src-tauri 下）
 ```
 
-无测试套件时跳过 `npm run build` 的 tsc 检查。
+测试现状：Rust 服务层有 35 个单元测试（`cargo test`）；前端暂未配置测试框架。
 
 ## 架构速览
 

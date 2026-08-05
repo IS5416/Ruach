@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { EditorState } from "@codemirror/state";
 import {
   EditorView,
@@ -21,6 +21,7 @@ const ruachTheme = EditorView.theme({
   ".cm-scroller": {
     fontFamily: "var(--font-preset)",
     lineHeight: "var(--editor-lh)",
+    letterSpacing: "0.02em", // match the preview pane side by side
   },
   ".cm-content": {
     padding: "24px",
@@ -99,5 +100,9 @@ export function useCodeMirror(
     }
   }, [content]);
 
-  return { getView: () => viewRef.current };
+  // Stable identity so caller effects (e.g. the paste listener) don't
+  // re-subscribe on every render.
+  const getView = useCallback(() => viewRef.current, []);
+
+  return { getView };
 }

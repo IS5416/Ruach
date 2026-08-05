@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useCodeMirror } from "./useCodeMirror";
 import { useDocStore } from "../../stores/docStore";
-import { useEditorStore } from "../../stores/editorStore";
 import type { EditorView } from "@codemirror/view";
 
 const AUTOSAVE_MS = 1500;
@@ -50,13 +49,9 @@ export function EditorPane() {
   const setContent = useDocStore((s) => s.setContent);
   const save = useDocStore((s) => s.save);
   const dirty = useDocStore((s) => s.dirty);
-  const setCursor = useEditorStore((s) => s.setCursor);
   const hasDoc = useDocStore((s) => s.relPath !== null || s.draftKey !== null);
 
-  const { getView } = useCodeMirror(containerRef, content, (doc, cursor) => {
-    setCursor(cursor);
-    setContent(doc);
-  });
+  const { getView } = useCodeMirror(containerRef, content, setContent);
 
   // Paste handler: intercept images before CodeMirror's default paste.
   useEffect(() => {

@@ -1,4 +1,5 @@
--- Ruach vault sidecar schema (user_version 1).
+-- Ruach vault sidecar schema (user_version 2; v2 adds the snapshots table
+-- via SCHEMA_V2_SQL in db.rs).
 -- Shared by Database::init and service tests via include_str!.
 
 CREATE TABLE IF NOT EXISTS files (
