@@ -319,6 +319,50 @@ body {
   padding: var(--space-2);
 }
 
+.palette__list {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+
+.palette__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.palette__item--selected {
+  background: var(--bg-panel);
+}
+
+.palette__title {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette__hint {
+  color: var(--text-faint);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.palette__empty {
+  color: var(--text-faint);
+  font-size: 12px;
+  text-align: center;
+  padding: var(--space-4);
+  margin: 0;
+}
+
 /* ---- settings ---- */
 
 .settings {

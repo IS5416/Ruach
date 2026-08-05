@@ -41,12 +41,17 @@ function App() {
   }, [setTheme]);
 
   // Ctrl+E: toggle between edit and immersion writing mode.
+  // Ctrl+P: open the command palette.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === "e") {
+      const key = e.key.toLowerCase();
+      if (e.ctrlKey && key === "e") {
         e.preventDefault();
         const current = useUiStore.getState().layoutMode;
         setLayoutMode(current === "immersion" ? "edit" : "immersion");
+      } else if (e.ctrlKey && key === "p") {
+        e.preventDefault();
+        useUiStore.getState().setCommandPaletteOpen(true);
       }
     };
     window.addEventListener("keydown", onKey);

@@ -139,8 +139,8 @@ pub fn index_reindex(state: State<'_, AppState>) -> Result<u32, AppError> {
 }
 
 #[tauri::command]
-pub fn search_query(_state: State<'_, AppState>, q: String) -> Result<Vec<SearchHit>, AppError> {
-    SearchService::query(&q)
+pub fn search_query(state: State<'_, AppState>, q: String) -> Result<Vec<SearchHit>, AppError> {
+    with_db(&state, |conn| SearchService::query(conn, &q))
 }
 
 #[tauri::command]
