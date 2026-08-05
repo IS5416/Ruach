@@ -44,6 +44,9 @@ function themeCss(): string {
   --accent: ${get("--accent")};
   --font-serif: ${get("--font-serif")};
   --font-sans: ${get("--font-sans")};
+  --font-preset: ${get("--font-preset") || get("--font-serif")};
+  --editor-lh: ${get("--editor-lh") || "1.8"};
+  --page-w: ${get("--page-w") || "720px"};
 }`;
 }
 
@@ -53,12 +56,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-serif);
+  font-family: var(--font-preset);
   font-size: 16px;
-  line-height: 1.9;
+  line-height: var(--editor-lh);
   -webkit-font-smoothing: antialiased;
 }
-.markdown-body { max-width: 46em; margin: 0 auto; padding: 48px 28px; }
+.markdown-body { max-width: var(--page-w); margin: 0 auto; padding: 48px 28px; }
 h1, h2, h3 { font-weight: 600; line-height: 1.4; margin: 1.6em 0 0.6em; }
 h1 { font-size: 1.7em; }
 h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }

@@ -11,6 +11,11 @@
   --space-6: 24px;
   --radius: 6px;
   --immersion-width: 720px;
+
+  /* typography (overridden at runtime from AppSettings) */
+  --font-preset: var(--font-serif);
+  --editor-lh: 1.8;
+  --page-w: 720px;
 }
 
 /* ---- 暖纸 warm paper (default) ---- */

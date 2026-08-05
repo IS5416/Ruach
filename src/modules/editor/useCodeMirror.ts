@@ -19,11 +19,13 @@ const ruachTheme = EditorView.theme({
     height: "100%",
   },
   ".cm-scroller": {
-    fontFamily: "var(--font-serif)",
-    lineHeight: "1.8",
+    fontFamily: "var(--font-preset)",
+    lineHeight: "var(--editor-lh)",
   },
   ".cm-content": {
     padding: "24px",
+    maxWidth: "var(--page-w)",
+    margin: "0 auto",
     caretColor: "var(--accent)",
   },
   "&.cm-focused": { outline: "none" },

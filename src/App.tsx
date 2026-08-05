@@ -9,7 +9,7 @@ import { TabStrip } from "./modules/tabs";
 import { SettingsPanel } from "./modules/settings";
 import { RecoveryBanner } from "./app/RecoveryBanner";
 import { useUiStore } from "./stores/uiStore";
-import { useThemeStore } from "./stores/themeStore";
+import { FONT_STACK, useThemeStore } from "./stores/themeStore";
 import { useDocStore } from "./stores/docStore";
 import type { LayoutMode } from "./lib/types";
 import "./App.css";
@@ -27,19 +27,33 @@ function App() {
   const treeVisible = useUiStore((s) => s.treeVisible);
   const toggleTree = useUiStore((s) => s.toggleTree);
   const theme = useThemeStore((s) => s.theme);
-  const setTheme = useThemeStore((s) => s.setTheme);
+  const hydrate = useThemeStore((s) => s.hydrate);
+  const fontPreset = useThemeStore((s) => s.fontPreset);
+  const lineHeight = useThemeStore((s) => s.lineHeight);
+  const pageWidth = useThemeStore((s) => s.pageWidth);
   const docTitle = useDocStore((s) => s.meta?.title);
   const docError = useDocStore((s) => s.error);
   const newDraft = useDocStore((s) => s.newDraft);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Load persisted settings once on mount (P7 wires the rest).
+  // Load persisted settings once on mount.
   useEffect(() => {
     import("./lib/ipc")
       .then(({ configLoad }) => configLoad())
-      .then((settings) => setTheme(settings.theme))
+      .then((settings) => {
+        hydrate(settings);
+        useUiStore.setState({ treeVisible: settings.show_file_tree });
+      })
       .catch(() => {});
-  }, [setTheme]);
+  }, [hydrate]);
+
+  // Apply typography as CSS variables (editor + preview both consume them).
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--font-preset", FONT_STACK[fontPreset]);
+    root.style.setProperty("--editor-lh", String(lineHeight));
+    root.style.setProperty("--page-w", `${pageWidth}px`);
+  }, [fontPreset, lineHeight, pageWidth]);
 
   // Ctrl+E: toggle edit/immersion. Ctrl+P: command palette.
   // Ctrl+Shift+N: open a new window with the current doc.
