@@ -22,8 +22,10 @@ interface DocState {
   /**
    * Save: file docs go to disk (mtime-conflict checked on the Rust side),
    * untitled drafts flush to the recovery buffer. Caller debounces.
+   * Resolves true on success — openDoc aborts its switch if the flush
+   * of pending edits fails, so the user's content is never dropped.
    */
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
 }
 
 export const useDocStore = create<DocState>((set, get) => ({
@@ -34,6 +36,10 @@ export const useDocStore = create<DocState>((set, get) => ({
   dirty: false,
   error: null,
   openDoc: async (relPath) => {
+    // Flush pending edits before switching — the debounced autosave may be
+    // in flight, and a failed save (e.g. FileChanged) keeps the current
+    // document open with its content intact.
+    if (get().dirty && !(await get().save())) return;
     set({ error: null });
     try {
       const { docOpen } = await import("../lib/ipc");
@@ -70,19 +76,27 @@ export const useDocStore = create<DocState>((set, get) => ({
   setContent: (content) => set({ content, dirty: true }),
   save: async () => {
     const { relPath, draftKey, content, dirty, meta } = get();
-    if (!dirty) return;
+    if (!dirty) return true;
     try {
       const { docSave, sessionFlush } = await import("../lib/ipc");
       if (relPath) {
         // Baseline = mtime we last saw; Rust rejects if the disk moved on.
         const mtime = await docSave(relPath, content, meta?.mtime);
-        set((s) => ({ dirty: false, meta: s.meta ? { ...s.meta, mtime } : null }));
+        set((s) => ({
+          // Only clear dirty if nothing was typed while the save flew —
+          // otherwise the newer content is left dirty and the debounce
+          // re-fires instead of silently losing it.
+          dirty: s.content !== content,
+          meta: s.meta ? { ...s.meta, mtime } : null,
+        }));
       } else if (draftKey) {
         await sessionFlush(draftKey, content);
-        set({ dirty: false });
+        set((s) => ({ dirty: s.content !== content }));
       }
+      return true;
     } catch (e) {
       set({ error: RuachError.fromUnknown(e) });
+      return false;
     }
   },
 }));

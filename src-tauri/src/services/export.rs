@@ -42,6 +42,7 @@ impl ExportService {
         format: ExportFormat,
         dest_dir: Option<&str>,
     ) -> Result<String, AppError> {
+        crate::services::document::DocumentService::validate_rel_path(rel_path)?;
         let content = std::fs::read_to_string(vault.join(rel_path))
             .map_err(|_| AppError::NotFound(rel_path.to_string()))?;
         let body = RenderService::render_markdown(&content)?;

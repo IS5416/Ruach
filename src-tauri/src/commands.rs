@@ -61,6 +61,9 @@ pub fn doc_open(
     rel_path: String,
 ) -> Result<DocOpenResult, AppError> {
     let res = with_vault(&state, |vault, conn| {
+        // Validate before indexing — index_file reads the file, so an
+        // invalid rel_path must never touch disk (no FTS read side-channel).
+        DocumentService::validate_rel_path(&rel_path)?;
         // Lazy index on open: tags/links/FTS stay fresh without a watcher.
         let _ = IndexService::index_file(conn, vault, &rel_path);
         DocumentService::open(vault, &rel_path)
@@ -130,6 +133,7 @@ pub fn vault_scan(state: State<'_, AppState>) -> Result<Vec<TreeNode>, AppError>
 #[tauri::command]
 pub fn index_file(state: State<'_, AppState>, rel_path: String) -> Result<(), AppError> {
     with_vault(&state, |vault, conn| {
+        DocumentService::validate_rel_path(&rel_path)?;
         IndexService::index_file(conn, vault, &rel_path)
     })
 }

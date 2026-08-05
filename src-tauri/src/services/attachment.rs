@@ -56,12 +56,19 @@ pub fn decode_data_url(data_url: &str) -> Result<(Vec<u8>, String), AppError> {
 pub struct AttachmentService;
 
 impl AttachmentService {
+    /// Cap on attachment sizes — pasted images and preview reads. Prevents
+    /// a stray reference or oversized paste from OOMing / filling the disk.
+    const MAX_ATTACH_BYTES: u64 = 64 * 1024 * 1024;
+
     pub fn save_paste(
         vault: &Path,
         bytes: &[u8],
         mime: &str,
         orig_name: Option<&str>,
     ) -> Result<AttachmentResult, AppError> {
+        if bytes.len() as u64 > Self::MAX_ATTACH_BYTES {
+            return Err(AppError::Parse("pasted data too large".to_string()));
+        }
         let dir = vault.join("attachments");
         std::fs::create_dir_all(&dir)?;
 
@@ -91,9 +98,17 @@ impl AttachmentService {
         })
     }
 
-    /// Read an attachment back as base64 for inline preview.
+    /// Read an attachment back as base64 for inline preview. rel_path is
+    /// user-controlled via markdown references — gate it like a document.
     pub fn read(vault: &Path, rel_path: &str) -> Result<AttachmentData, AppError> {
+        crate::services::document::DocumentService::validate_rel_path(rel_path)?;
         let abs = vault.join(rel_path);
+        let len = std::fs::metadata(&abs)
+            .map_err(|_| AppError::NotFound(rel_path.to_string()))?
+            .len();
+        if len > Self::MAX_ATTACH_BYTES {
+            return Err(AppError::Other(format!("attachment too large ({len} bytes)")));
+        }
         let bytes = std::fs::read(&abs)
             .map_err(|_| AppError::NotFound(rel_path.to_string()))?;
         let mime = Path::new(rel_path)

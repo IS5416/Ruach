@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Button } from "./components/Button";
 import { EditorPane } from "./modules/editor";
@@ -64,6 +64,28 @@ function App() {
     root.style.setProperty("--editor-lh", String(lineHeight));
     root.style.setProperty("--page-w", `${pageWidth}px`);
   }, [fontPreset, lineHeight, pageWidth]);
+
+  // Themes live on `:root[data-theme=...]` in tokens.css — carry the
+  // attribute on the root element so the palette actually applies.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  // Last-resort flush on window close: the 1.5s debounce may still be
+  // pending, so push the dirty doc into the recovery buffer. Best-effort —
+  // the invoke is sent before the webview tears down.
+  useEffect(() => {
+    const onUnload = () => {
+      const { relPath, draftKey, content, dirty } = useDocStore.getState();
+      if (!dirty || (!relPath && !draftKey)) return;
+      const docKey = draftKey ?? relPath!;
+      void import("./lib/ipc").then(({ sessionFlush }) =>
+        sessionFlush(docKey, content),
+      );
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, []);
 
   // Ctrl+E: toggle edit/immersion. Ctrl+P: command palette.
   // Ctrl+Shift+N: open a new window with the current doc.

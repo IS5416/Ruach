@@ -48,6 +48,8 @@ impl IndexService {
 
     /// Index one file from disk (read + write sidecar rows).
     pub fn index_file(conn: &Connection, vault: &Path, rel_path: &str) -> Result<(), AppError> {
+        // The read below touches disk with a caller-supplied path — gate it.
+        DocumentService::validate_rel_path(rel_path)?;
         let content = std::fs::read_to_string(vault.join(rel_path))
             .map_err(|_| AppError::NotFound(rel_path.to_string()))?;
         Self::index_file_content(conn, rel_path, &content)

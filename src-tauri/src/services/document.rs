@@ -19,19 +19,26 @@ pub struct DocOpenResult {
 pub struct DocumentService;
 
 impl DocumentService {
-    /// Reject absolute paths and `..` traversal — every rel_path entering
-    /// the service must pass this gate.
+    /// Reject absolute paths, drive prefixes (`C:foo`), `..` traversal and
+    /// backslash / double-slash forms — every rel_path entering the service
+    /// must pass this gate. Component-based so legal names like
+    /// `my..notes.md` still pass.
     pub fn validate_rel_path(rel_path: &str) -> Result<(), AppError> {
-        let p = Path::new(rel_path);
-        if p.is_absolute()
-            || rel_path.contains("..")
-            || rel_path.contains('\\')
-            || rel_path.contains("//")
-        {
+        use std::path::Component;
+        if rel_path.is_empty() || rel_path.contains('\\') || rel_path.contains("//") {
             return Err(AppError::InvalidPath(rel_path.to_string()));
         }
-        if rel_path.is_empty() || rel_path.starts_with('/') {
+        let p = Path::new(rel_path);
+        if p.is_absolute() {
             return Err(AppError::InvalidPath(rel_path.to_string()));
+        }
+        for comp in p.components() {
+            if matches!(
+                comp,
+                Component::Prefix(_) | Component::ParentDir | Component::RootDir
+            ) {
+                return Err(AppError::InvalidPath(rel_path.to_string()));
+            }
         }
         Ok(())
     }
@@ -61,7 +68,7 @@ impl DocumentService {
             .modified()
             .ok()
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64)
+            .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
         Ok(DocOpenResult {
             content,
@@ -95,7 +102,7 @@ impl DocumentService {
                     .modified()
                     .ok()
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs() as i64)
+                    .map(|d| d.as_millis() as i64)
                     .unwrap_or(0);
                 if let Some(expected) = expected_mtime {
                     if mtime != expected {
@@ -123,7 +130,7 @@ impl DocumentService {
             .modified()
             .ok()
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64)
+            .map(|d| d.as_millis() as i64)
             .unwrap_or(0);
         Ok(mtime)
     }
@@ -210,9 +217,16 @@ mod tests {
     #[test]
     fn validate_rejects_traversal_and_absolute() {
         assert!(DocumentService::validate_rel_path("../escape.md").is_err());
+        assert!(DocumentService::validate_rel_path("notes/../a.md").is_err());
         assert!(DocumentService::validate_rel_path("/etc/passwd").is_err());
         assert!(DocumentService::validate_rel_path("C:/windows").is_err());
+        // Windows drive-relative paths are not absolute but must not escape.
+        assert!(DocumentService::validate_rel_path("C:foo").is_err());
         assert!(DocumentService::validate_rel_path("").is_err());
+        // Legal names containing a ".." substring must still pass.
+        assert!(DocumentService::validate_rel_path("my..notes.md").is_ok());
+        assert!(DocumentService::validate_rel_path("a..b/notes.md").is_ok());
+        assert!(DocumentService::validate_rel_path("..notes/a.md").is_ok());
         assert!(DocumentService::validate_rel_path("notes/a.md").is_ok());
     }
 
@@ -265,9 +279,10 @@ mod tests {
         DocumentService::save(&conn, &dir, "notes/a.md", "# A\n", None).expect("save");
         assert_eq!(fs::read_to_string(dir.join("notes/a.md")).unwrap(), "# A\n");
 
-        // Update with the mtime read back from disk.
+        // Update with the mtime read back from disk (millisecond precision,
+        // matching the conflict-detection baseline).
         let meta = fs::metadata(dir.join("notes/a.md")).unwrap();
-        let mtime = meta.modified().unwrap().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+        let mtime = meta.modified().unwrap().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
         DocumentService::save(&conn, &dir, "notes/a.md", "# A v2\n", Some(mtime)).expect("save v2");
         assert_eq!(fs::read_to_string(dir.join("notes/a.md")).unwrap(), "# A v2\n");
         let _ = fs::remove_dir_all(&dir);
