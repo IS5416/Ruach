@@ -4,6 +4,32 @@ import { useThemeStore } from "../../stores/themeStore";
 
 const RENDER_DEBOUNCE_MS = 300;
 
+/**
+ * Vault attachments are referenced by relative path (`attachments/x.png`).
+ * The sandboxed iframe cannot load them directly, so each is read through
+ * attach_read and inlined as a data URL.
+ */
+async function inlineAttachments(html: string): Promise<string> {
+  const refs = [...html.matchAll(/src="(attachments\/[^"]+)"/g)].map((m) => m[1]);
+  if (refs.length === 0) return html;
+  const unique = [...new Set(refs)];
+  const resolved = new Map<string, string>();
+  const { attachRead } = await import("../../lib/ipc");
+  await Promise.all(
+    unique.map(async (p) => {
+      try {
+        const d = await attachRead(p);
+        resolved.set(p, `data:${d.mime};base64,${d.base64}`);
+      } catch {
+        // Leave a broken image rather than failing the whole preview.
+      }
+    }),
+  );
+  return html.replace(/src="(attachments\/[^"]+)"/g, (_, p: string) => {
+    return `src="${resolved.get(p) ?? ""}"`;
+  });
+}
+
 /** Resolve current theme tokens into CSS for the iframe document. */
 function themeCss(): string {
   const s = getComputedStyle(document.documentElement);
@@ -105,6 +131,7 @@ export function PreviewPane() {
     const timer = setTimeout(() => {
       import("../../lib/ipc")
         .then(({ renderMarkdown }) => renderMarkdown(content))
+        .then(inlineAttachments)
         .then(setBody)
         .catch(() => setBody("<p>渲染失败</p>"))
         .finally(() => setRendering(false));

@@ -49,3 +49,8 @@ export interface SessionDraft {
   content: string;
   cursor: number | null;
 }
+
+export interface AttachmentData {
+  mime: string;
+  base64: string;
+}

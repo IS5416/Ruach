@@ -1,5 +1,5 @@
 use crate::error::AppError;
-use crate::services::attachment::{AttachmentResult, AttachmentService};
+use crate::services::attachment::{AttachmentData, AttachmentResult, AttachmentService};
 use crate::services::config::AppSettings;
 use crate::services::db::Database;
 use crate::services::document::{DocOpenResult, DocumentService, SessionDraft, SessionInfo};
@@ -145,12 +145,22 @@ pub fn search_query(_state: State<'_, AppState>, q: String) -> Result<Vec<Search
 
 #[tauri::command]
 pub fn attach_paste(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     data_url: String,
+    orig_name: Option<String>,
 ) -> Result<AttachmentResult, AppError> {
-    // P4: decode base64 data URL and delegate to AttachmentService.
-    let bytes = data_url.into_bytes();
-    AttachmentService::save_paste(&bytes, None)
+    let (bytes, mime) = crate::services::attachment::decode_data_url(&data_url)?;
+    with_vault(&state, |vault, _| {
+        AttachmentService::save_paste(vault, &bytes, &mime, orig_name.as_deref())
+    })
+}
+
+#[tauri::command]
+pub fn attach_read(
+    state: State<'_, AppState>,
+    rel_path: String,
+) -> Result<AttachmentData, AppError> {
+    with_vault(&state, |vault, _| AttachmentService::read(vault, &rel_path))
 }
 
 #[tauri::command]

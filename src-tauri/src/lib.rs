@@ -35,6 +35,7 @@ pub fn run() {
             commands::index_reindex,
             commands::search_query,
             commands::attach_paste,
+            commands::attach_read,
             commands::render_markdown,
             commands::export_document,
             commands::window_create,

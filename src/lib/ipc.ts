@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { RuachError } from "./error";
 import type {
   AppSettings,
+  AttachmentData,
   DocOpenResult,
   ExportFormat,
   SearchHit,
@@ -43,7 +44,9 @@ export const indexReindex = () => ipc<number>("index_reindex");
 
 export const searchQuery = (q: string) => ipc<SearchHit[]>("search_query", { q });
 
-export const attachPaste = (dataUrl: string) => ipc<{ rel_path: string }>("attach_paste", { dataUrl });
+export const attachPaste = (dataUrl: string, origName?: string) =>
+  ipc<{ rel_path: string }>("attach_paste", { dataUrl, origName });
+export const attachRead = (relPath: string) => ipc<AttachmentData>("attach_read", { relPath });
 
 export const renderMarkdown = (content: string) => ipc<string>("render_markdown", { content });
 

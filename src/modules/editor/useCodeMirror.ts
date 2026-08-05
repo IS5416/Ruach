@@ -33,12 +33,13 @@ const ruachTheme = EditorView.theme({
 /**
  * Bind a CodeMirror view to a container. External `content` swaps in only
  * when it differs from what the view holds (doc switching, not typing).
+ * Returns a getter so callers can dispatch into the view (e.g. paste).
  */
 export function useCodeMirror(
   container: RefObject<HTMLElement | null>,
   content: string,
   onDocChange: (content: string, cursor: number) => void,
-) {
+): { getView: () => EditorView | null } {
   const viewRef = useRef<EditorView | null>(null);
   const contentRef = useRef(content);
   const onDocChangeRef = useRef(onDocChange);
@@ -89,4 +90,6 @@ export function useCodeMirror(
       contentRef.current = content;
     }
   }, [content]);
+
+  return { getView: () => viewRef.current };
 }
