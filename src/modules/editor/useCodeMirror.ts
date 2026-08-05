@@ -46,6 +46,10 @@ export function useCodeMirror(
   const contentRef = useRef(content);
   const onDocChangeRef = useRef(onDocChange);
   onDocChangeRef.current = onDocChange;
+  // Raised while an external content swap dispatches, so the resulting
+  // docChanged isn't reported back as user input (which would mark the
+  // store dirty and spin the doc:changed ping-pong between windows).
+  const suppressRef = useRef(false);
 
   useEffect(() => {
     if (!container.current) return;
@@ -61,7 +65,7 @@ export function useCodeMirror(
           highlightActiveLine(),
           cmPlaceholder("打开或新建一篇文档…"),
           EditorView.updateListener.of((update) => {
-            if (update.docChanged) {
+            if (update.docChanged && !suppressRef.current) {
               contentRef.current = update.state.doc.toString();
               onDocChangeRef.current(
                 contentRef.current,
@@ -86,9 +90,11 @@ export function useCodeMirror(
     const view = viewRef.current;
     if (!view) return;
     if (content !== contentRef.current) {
+      suppressRef.current = true;
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: content },
       });
+      suppressRef.current = false;
       contentRef.current = content;
     }
   }, [content]);

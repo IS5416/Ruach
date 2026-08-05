@@ -213,9 +213,17 @@ pub fn snapshot_list(
 #[tauri::command]
 pub fn window_create(
     app: AppHandle,
+    state: State<'_, AppState>,
     rel_path: Option<String>,
 ) -> Result<(), AppError> {
-    WindowManager::create_window(&app, rel_path.as_deref())
+    // Pass the vault root along so the new window skips the empty state.
+    let vault = state
+        .vault
+        .lock()
+        .expect("vault mutex poisoned")
+        .clone()
+        .map(|p| p.to_string_lossy().into_owned());
+    WindowManager::create_window(&app, rel_path.as_deref(), vault.as_deref())
 }
 
 #[tauri::command]

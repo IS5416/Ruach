@@ -102,17 +102,33 @@ function App() {
       } else if (e.ctrlKey && e.shiftKey && key === "n") {
         e.preventDefault();
         const relPath = useDocStore.getState().relPath;
-        void import("./lib/ipc").then(({ windowCreate }) => windowCreate(relPath ?? undefined));
+        const vaultPath = useVaultStore.getState().vaultPath;
+        void import("./lib/ipc").then(({ windowCreate }) =>
+          windowCreate(relPath ?? undefined, vaultPath ?? undefined),
+        );
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [setLayoutMode]);
 
-  // New windows carry ?doc=<rel_path> in their URL — open it on mount.
+  // New windows carry ?vault=<root>&doc=<rel_path> in their URL — open the
+  // vault first (so the tree/editor render), then the doc.
   useEffect(() => {
-    const doc = new URLSearchParams(window.location.search).get("doc");
-    if (doc) void useDocStore.getState().openDoc(doc);
+    const params = new URLSearchParams(window.location.search);
+    const doc = params.get("doc");
+    const vault = params.get("vault");
+    if (vault) {
+      void useVaultStore
+        .getState()
+        .openVault(vault)
+        .then(() => {
+          if (doc) void useDocStore.getState().openDoc(doc);
+        })
+        .catch(() => {});
+    } else if (doc) {
+      void useDocStore.getState().openDoc(doc);
+    }
   }, []);
 
   // Cross-window sync: reload the doc when another window saved it.
@@ -194,7 +210,32 @@ function App() {
 
         <main className="main">
           {!immersion && <TabStrip />}
-          {docError && <div className="error-banner">{docError.message}</div>}
+          {docError && (
+            <div className="error-banner" role="alert">
+              <span className="error-banner__text">{docError.message}</span>
+              {docError.code === "file_changed" && (
+                <div className="error-banner__actions">
+                  <Button
+                    onClick={() => {
+                      const relPath = useDocStore.getState().relPath;
+                      if (relPath) {
+                        void useDocStore.getState().openDoc(relPath, { discardChanges: true });
+                      }
+                    }}
+                  >
+                    重新加载
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      void useDocStore.getState().save(true);
+                    }}
+                  >
+                    强制覆盖
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           {settingsOpen && !immersion ? (
             <SettingsPanel />
           ) : noVault ? (

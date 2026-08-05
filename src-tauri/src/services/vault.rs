@@ -26,12 +26,27 @@ impl VaultService {
     }
 
     /// Recursive scan: walk `.md` files (skipping dot-dirs like `.ruach/`),
-    /// upsert `files` rows (incremental by mtime+size) and re-index content
-    /// of changed files. Returns the flat tree for the frontend.
+    /// upsert `files` rows (incremental by mtime+size), re-index content
+    /// of changed files, and prune rows for files deleted from disk.
+    /// Returns the flat tree for the frontend.
     pub fn scan(conn: &Connection, vault: &Path) -> Result<Vec<TreeNode>, AppError> {
         let now = unix_now();
         let mut nodes = Vec::new();
-        scan_dir(conn, vault, vault, "", &mut nodes, now)?;
+        let mut seen = std::collections::HashSet::new();
+        scan_dir(conn, vault, vault, "", &mut nodes, now, &mut seen)?;
+        // Reconcile: drop files rows (and cascaded tags/links/FTS) for
+        // files that no longer exist on disk.
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt = tx.prepare("SELECT rel_path FROM files")?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            for rel in rows.collect::<Result<Vec<_>, _>>()? {
+                if !seen.contains(&rel) {
+                    tx.execute("DELETE FROM files WHERE rel_path = ?1", [&rel])?;
+                }
+            }
+        }
+        tx.commit()?;
         Ok(nodes)
     }
 
@@ -48,6 +63,7 @@ fn scan_dir(
     prefix: &str,
     nodes: &mut Vec<TreeNode>,
     now: i64,
+    seen: &mut std::collections::HashSet<String>,
 ) -> Result<(), AppError> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -67,12 +83,13 @@ fn scan_dir(
                 name,
                 is_dir: true,
             });
-            scan_dir(conn, vault, &entry.path(), &rel, nodes, now)?;
+            scan_dir(conn, vault, &entry.path(), &rel, nodes, now, seen)?;
         } else if name.ends_with(".md") {
             let meta = entry.metadata()?;
             let mtime = mtime_secs(&meta);
             let size = meta.len();
             upsert_file(conn, vault, &rel, &name, mtime, size, now)?;
+            seen.insert(rel.clone());
             nodes.push(TreeNode {
                 rel_path: rel,
                 name,
@@ -207,6 +224,26 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM tags", [], |r| r.get(0))
             .unwrap();
         assert_eq!(tags2, 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn scan_prunes_deleted_files() {
+        let (dir, conn) = temp_vault("prune");
+        std::fs::write(dir.join("a.md"), "# A\n").unwrap();
+        VaultService::scan(&conn, &dir).unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+
+        // File removed from disk → next scan drops its rows.
+        std::fs::remove_file(dir.join("a.md")).unwrap();
+        VaultService::scan(&conn, &dir).unwrap();
+        let n2: i64 = conn
+            .query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n2, 0);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -57,6 +57,8 @@ impl IndexService {
 
     /// Write derived rows for one document: tags, links, FTS. Replaces any
     /// existing rows (idempotent). Title is used for the FTS title column.
+    /// All-or-nothing: the DELETE+INSERT batch runs inside one transaction,
+    /// so a mid-way failure can't leave a half-indexed doc behind.
     pub fn index_file_content(
         conn: &Connection,
         rel_path: &str,
@@ -68,7 +70,36 @@ impl IndexService {
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_default();
         let title = DocumentService::title_from(content, &stem);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
 
+        let tx = conn.unchecked_transaction()?;
+        Self::write_derived_rows(&tx, rel_path, &title, &markers, content, now)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The actual DELETE+INSERT batch, run on either a fresh transaction
+    /// or an outer one (reindex). FK safety: indexing may arrive before
+    /// the files row (doc_save on a freshly dragged-in file) — seed it so
+    /// tag inserts don't fail; placeholder mtime/size are corrected by
+    /// the next vault scan.
+    fn write_derived_rows(
+        conn: &Connection,
+        rel_path: &str,
+        title: &str,
+        markers: &DocumentMarkers,
+        content: &str,
+        now: i64,
+    ) -> Result<(), AppError> {
+        conn.execute(
+            "INSERT INTO files (rel_path, title, mtime, size, created_at, updated_at)
+             VALUES (?1, ?2, 0, 0, ?3, ?3)
+             ON CONFLICT(rel_path) DO NOTHING",
+            rusqlite::params![rel_path, title, now],
+        )?;
         conn.execute("DELETE FROM tags WHERE rel_path = ?1", [rel_path])?;
         conn.execute("DELETE FROM links WHERE src_path = ?1", [rel_path])?;
         conn.execute("DELETE FROM docs_fts WHERE rel_path = ?1", [rel_path])?;
@@ -93,20 +124,24 @@ impl IndexService {
     }
 
     /// Full rebuild: wipe derived rows and re-index every `.md` file.
-    /// Returns the number of files indexed.
+    /// Returns the number of files indexed. One transaction around the
+    /// whole rebuild — a mid-way read failure rolls everything back
+    /// instead of leaving the index wiped.
     pub fn reindex(conn: &Connection, vault: &Path) -> Result<u32, AppError> {
-        conn.execute("DELETE FROM tags", [])?;
-        conn.execute("DELETE FROM links", [])?;
-        conn.execute("DELETE FROM docs_fts", [])?;
-        conn.execute("DELETE FROM files", [])?;
+        let tx = conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM tags", [])?;
+        tx.execute("DELETE FROM links", [])?;
+        tx.execute("DELETE FROM docs_fts", [])?;
+        tx.execute("DELETE FROM files", [])?;
 
         let mut count = 0u32;
-        Self::reindex_dir(conn, vault, vault, &mut count)?;
+        Self::reindex_dir(&tx, vault, vault, &mut count)?;
+        tx.commit()?;
         Ok(count)
     }
 
     fn reindex_dir(
-        conn: &Connection,
+        conn: &rusqlite::Transaction,
         vault: &Path,
         dir: &Path,
         count: &mut u32,
@@ -157,7 +192,10 @@ impl IndexService {
                         now
                     ],
                 )?;
-                Self::index_file_content(conn, &rel, &content)?;
+                // Inline into the outer reindex transaction — no nested
+                // BEGIN (rusqlite rejects it).
+                let markers = Self::extract_markers(&content);
+                Self::write_derived_rows(conn, &rel, &title, &markers, &content, now)?;
                 *count += 1;
             }
         }

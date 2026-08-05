@@ -8,7 +8,11 @@ use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder};
 pub struct WindowManager;
 
 impl WindowManager {
-    pub fn create_window(app: &AppHandle, rel_path: Option<&str>) -> Result<(), AppError> {
+    pub fn create_window(
+        app: &AppHandle,
+        rel_path: Option<&str>,
+        vault_path: Option<&str>,
+    ) -> Result<(), AppError> {
         let label = format!(
             "editor-{}",
             std::time::SystemTime::now()
@@ -16,11 +20,19 @@ impl WindowManager {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         );
-        let url = match rel_path {
-            Some(path) => {
-                WebviewUrl::App(format!("index.html?doc={}", urlencode(path)).into())
-            }
-            None => WebviewUrl::App("index.html".into()),
+        // Vault context rides the URL too, so a new window opens straight
+        // into the doc instead of the "open a vault" empty state.
+        let mut params = Vec::new();
+        if let Some(vault) = vault_path {
+            params.push(format!("vault={}", urlencode(vault)));
+        }
+        if let Some(path) = rel_path {
+            params.push(format!("doc={}", urlencode(path)));
+        }
+        let url = if params.is_empty() {
+            WebviewUrl::App("index.html".into())
+        } else {
+            WebviewUrl::App(format!("index.html?{}", params.join("&")).into())
         };
         WebviewWindowBuilder::new(app, &label, url)
             .title("Ruach")
@@ -41,6 +53,7 @@ fn urlencode(s: &str) -> String {
             b'#' => out.push_str("%23"),
             b'&' => out.push_str("%26"),
             b' ' => out.push_str("%20"),
+            b'+' => out.push_str("%2B"),
             b'=' => out.push_str("%3D"),
             0x21..=0x7E => out.push(b as char),
             _ => out.push_str(&format!("%{b:02X}")),

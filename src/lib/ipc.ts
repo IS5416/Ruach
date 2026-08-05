@@ -29,8 +29,11 @@ export const vaultOpen = (path: string) => ipc<void>("vault_open", { path });
 export const vaultScan = () => ipc<TreeNode[]>("vault_scan");
 
 export const docOpen = (relPath: string) => ipc<DocOpenResult>("doc_open", { relPath });
-/** Returns the new file mtime (baseline for the next autosave). */
-export const docSave = (relPath: string, content: string, expectedMtime?: number) =>
+/**
+ * Returns the new file mtime (baseline for the next autosave).
+ * `expectedMtime: null` skips the conflict check (forced overwrite).
+ */
+export const docSave = (relPath: string, content: string, expectedMtime?: number | null) =>
   ipc<number>("doc_save", { relPath, content, expectedMtime });
 
 export const sessionFlush = (docKey: string, content: string, cursor?: number | null) =>
@@ -53,7 +56,8 @@ export const renderMarkdown = (content: string) => ipc<string>("render_markdown"
 export const exportDocument = (relPath: string, format: ExportFormat, destDir?: string) =>
   ipc<string>("export_document", { relPath, format, destDir });
 
-export const windowCreate = (relPath?: string) => ipc<void>("window_create", { relPath });
+export const windowCreate = (relPath?: string, vaultPath?: string) =>
+  ipc<void>("window_create", { relPath, vaultPath });
 
 export const snapshotCreate = (relPath: string) => ipc<number>("snapshot_create", { relPath });
 export const snapshotRestore = (relPath: string, snapshotAt: number) =>

@@ -31,11 +31,13 @@ export function RecoveryBanner() {
     const { sessionRestore, sessionDiscard } = await import("../lib/ipc");
     try {
       const draft = await sessionRestore(docKey);
-      restoreSession(docKey, draft.content);
-    } finally {
-      await sessionDiscard(docKey);
-      setItems((prev) => prev.filter((i) => i.doc_key !== docKey));
+      await restoreSession(docKey, draft.content);
+    } catch {
+      // Restore failed (e.g. the row vanished) — keep the banner visible.
+      return;
     }
+    await sessionDiscard(docKey);
+    setItems((prev) => prev.filter((i) => i.doc_key !== docKey));
   };
 
   const discard = async (docKey: string) => {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUiStore } from "../../stores/uiStore";
 import { useDocStore } from "../../stores/docStore";
+import { useVaultStore } from "../../stores/vaultStore";
 import type { SearchHit } from "../../lib/types";
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -51,8 +52,9 @@ const COMMANDS: Command[] = [
     hint: "Ctrl+Shift+N",
     run: () => {
       const relPath = useDocStore.getState().relPath;
+      const vaultPath = useVaultStore.getState().vaultPath;
       void import("../../lib/ipc").then(({ windowCreate }) =>
-        windowCreate(relPath ?? undefined),
+        windowCreate(relPath ?? undefined, vaultPath ?? undefined),
       );
     },
   },
