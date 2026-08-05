@@ -7,7 +7,7 @@ pub const SCHEMA_VERSION: i64 = 1;
 
 /// Schema for the vault sidecar database. All derived data keyed by
 /// vault-relative path so the vault can move/sync externally.
-const SCHEMA_SQL: &str = include_str!("db_schema.sql");
+pub const SCHEMA_SQL: &str = include_str!("db_schema.sql");
 
 /// Owns the single SQLite connection for a vault. `Connection` is `Send`
 /// but not `Sync`, so it lives behind a `Mutex`; all access happens on the
@@ -37,6 +37,8 @@ impl Database {
 }
 
 fn init_schema(conn: &Connection) -> Result<(), AppError> {
+    // ON DELETE CASCADE between derived tables and files requires this.
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if version > SCHEMA_VERSION {
         return Err(AppError::Db(rusqlite::Error::InvalidColumnName(

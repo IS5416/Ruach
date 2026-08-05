@@ -58,7 +58,11 @@ pub fn doc_open(
     state: State<'_, AppState>,
     rel_path: String,
 ) -> Result<DocOpenResult, AppError> {
-    let res = with_vault(&state, |vault, _| DocumentService::open(vault, &rel_path))?;
+    let res = with_vault(&state, |vault, conn| {
+        // Lazy index on open: tags/links/FTS stay fresh without a watcher.
+        let _ = IndexService::index_file(conn, vault, &rel_path);
+        DocumentService::open(vault, &rel_path)
+    })?;
     let _ = app.emit("doc:opened", &res.meta.rel_path);
     Ok(res)
 }
@@ -72,7 +76,10 @@ pub fn doc_save(
     expected_mtime: Option<i64>,
 ) -> Result<i64, AppError> {
     let res = with_vault(&state, |vault, conn| {
-        DocumentService::save(conn, vault, &rel_path, &content, expected_mtime)
+        let mtime = DocumentService::save(conn, vault, &rel_path, &content, expected_mtime)?;
+        // Keep tags/links/FTS fresh right after save (lazy indexing).
+        let _ = IndexService::index_file_content(conn, &rel_path, &content);
+        Ok(mtime)
     });
     if res.is_ok() {
         let _ = app.emit("doc:changed", &rel_path);
@@ -115,17 +122,19 @@ pub fn session_discard(
 
 #[tauri::command]
 pub fn vault_scan(state: State<'_, AppState>) -> Result<Vec<TreeNode>, AppError> {
-    with_vault(&state, |vault, _| VaultService::scan(vault))
+    with_vault(&state, |vault, conn| VaultService::scan(conn, vault))
 }
 
 #[tauri::command]
 pub fn index_file(state: State<'_, AppState>, rel_path: String) -> Result<(), AppError> {
-    with_vault(&state, |vault, _| IndexService::index_file(vault, &rel_path))
+    with_vault(&state, |vault, conn| {
+        IndexService::index_file(conn, vault, &rel_path)
+    })
 }
 
 #[tauri::command]
 pub fn index_reindex(state: State<'_, AppState>) -> Result<u32, AppError> {
-    with_vault(&state, |vault, _| IndexService::reindex(vault))
+    with_vault(&state, |vault, conn| IndexService::reindex(conn, vault))
 }
 
 #[tauri::command]

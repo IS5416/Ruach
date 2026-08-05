@@ -113,7 +113,7 @@ body {
   border-right: 1px solid var(--border);
   background: var(--bg-panel);
   overflow-y: auto;
-  padding: var(--space-3) var(--space-2);
+  padding: var(--space-2) 0;
 }
 
 .tree__empty {
@@ -123,20 +123,26 @@ body {
   margin-top: var(--space-6);
 }
 
-.tree__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.tree__row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 26px;
+}
+
+.tree__row--active {
+  background: var(--bg-raised);
 }
 
 .tree__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 2px;
   width: 100%;
+  height: 100%;
   text-align: left;
   background: transparent;
   border: none;
-  border-radius: var(--radius);
-  padding: 4px 8px;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-dim);
@@ -151,9 +157,15 @@ body {
   color: var(--text);
 }
 
-.tree__item--active {
-  background: var(--bg-raised);
+.tree__row--active .tree__item {
   color: var(--accent);
+}
+
+.tree__chevron {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-faint);
 }
 
 /* ---- editor / preview ---- */
