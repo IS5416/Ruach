@@ -14,7 +14,7 @@ import { markdown } from "@codemirror/lang-markdown";
 const ruachTheme = EditorView.theme({
   "&": {
     backgroundColor: "var(--bg)",
-    color: "var(--text)",
+    color: "var(--ink)",
     fontSize: "15px",
     height: "100%",
   },

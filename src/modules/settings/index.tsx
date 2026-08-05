@@ -40,54 +40,60 @@ export function SettingsPanel() {
     <section className="settings" aria-label="设置">
       <h2>设置</h2>
 
-      <label className="settings__row">
-        主题
-        <select value={theme} onChange={(e) => change(() => setTheme(e.currentTarget.value as ThemeKind))}>
-          {THEMES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="settings__group">
+        <label className="settings__row">
+          主题
+          <select value={theme} onChange={(e) => change(() => setTheme(e.currentTarget.value as ThemeKind))}>
+            {THEMES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <label className="settings__row">
-        字体
-        <select value={fontPreset} onChange={(e) => change(() => setFontPreset(e.currentTarget.value as FontPreset))}>
-          {FONTS.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-      </label>
+        <label className="settings__row">
+          字体
+          <select value={fontPreset} onChange={(e) => change(() => setFontPreset(e.currentTarget.value as FontPreset))}>
+            {FONTS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
-      <label className="settings__row">
-        行距
-        <select value={lineHeight} onChange={(e) => change(() => setLineHeight(Number(e.currentTarget.value)))}>
-          {LINE_HEIGHTS.map((lh) => (
-            <option key={lh} value={lh}>
-              {lh.toFixed(1)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="settings__group">
+        <label className="settings__row">
+          行距
+          <select value={lineHeight} onChange={(e) => change(() => setLineHeight(Number(e.currentTarget.value)))}>
+            {LINE_HEIGHTS.map((lh) => (
+              <option key={lh} value={lh}>
+                {lh.toFixed(1)}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <label className="settings__row">
-        页宽
-        <select value={pageWidth} onChange={(e) => change(() => setPageWidth(Number(e.currentTarget.value)))}>
-          {PAGE_WIDTHS.map((w) => (
-            <option key={w} value={w}>
-              {w}px
-            </option>
-          ))}
-        </select>
-      </label>
+        <label className="settings__row">
+          页宽
+          <select value={pageWidth} onChange={(e) => change(() => setPageWidth(Number(e.currentTarget.value)))}>
+            {PAGE_WIDTHS.map((w) => (
+              <option key={w} value={w}>
+                {w}px
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
-      <label className="settings__row settings__row--checkbox">
-        <input type="checkbox" checked={treeVisible} onChange={() => change(toggleTree)} />
-        显示文件树
-      </label>
+      <div className="settings__group">
+        <label className="settings__row settings__row--checkbox">
+          <input type="checkbox" checked={treeVisible} onChange={() => change(toggleTree)} />
+          显示文件树
+        </label>
+      </div>
     </section>
   );
 }

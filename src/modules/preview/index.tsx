@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDocStore } from "../../stores/docStore";
 import { useThemeStore } from "../../stores/themeStore";
+import { useUiStore } from "../../stores/uiStore";
 
 const RENDER_DEBOUNCE_MS = 300;
 
@@ -37,10 +38,12 @@ function themeCss(): string {
   return `:root {
   --bg: ${get("--bg")};
   --bg-panel: ${get("--bg-panel")};
-  --text: ${get("--text")};
-  --text-dim: ${get("--text-dim")};
-  --text-faint: ${get("--text-faint")};
-  --border: ${get("--border")};
+  --bg-raised: ${get("--bg-raised")};
+  --ink-strong: ${get("--ink-strong")};
+  --ink: ${get("--ink")};
+  --ink-soft: ${get("--ink-soft")};
+  --ink-faint: ${get("--ink-faint")};
+  --line: ${get("--line")};
   --accent: ${get("--accent")};
   --font-serif: ${get("--font-serif")};
   --font-sans: ${get("--font-sans")};
@@ -55,24 +58,25 @@ const PREVIEW_CSS = `
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   font-family: var(--font-preset);
   font-size: 16px;
   line-height: var(--editor-lh);
+  letter-spacing: 0.02em;
   -webkit-font-smoothing: antialiased;
 }
-.markdown-body { max-width: var(--page-w); margin: 0 auto; padding: 48px 28px; }
+.markdown-body { max-width: var(--page-w); margin: 0 auto; padding: 56px 28px 30vh; }
 h1, h2, h3 { font-weight: 600; line-height: 1.4; margin: 1.6em 0 0.6em; }
-h1 { font-size: 1.7em; }
-h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: 0.25em; }
+h1 { font-size: 1.7em; letter-spacing: 0.04em; }
+h2 { font-size: 1.35em; border-bottom: 1px solid var(--line); padding-bottom: 0.25em; }
 p, ul, ol, blockquote, pre, table { margin: 0.9em 0; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 blockquote {
   margin-left: 0;
   padding-left: 1.2em;
-  border-left: 2px solid var(--border);
-  color: var(--text-dim);
+  border-left: 2px solid var(--line);
+  color: var(--ink-soft);
 }
 code {
   font-family: Consolas, "Cascadia Code", monospace;
@@ -83,20 +87,20 @@ code {
 }
 pre {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 6px;
   padding: 1em;
   overflow-x: auto;
 }
 pre code { background: transparent; padding: 0; }
 table { border-collapse: collapse; font-size: 0.92em; }
-th, td { border: 1px solid var(--border); padding: 0.4em 0.8em; }
+th, td { border: 1px solid var(--line); padding: 0.4em 0.8em; }
 th { background: var(--bg-panel); }
-hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
 input[type="checkbox"] { margin-right: 0.4em; }
-del { color: var(--text-faint); }
+del { color: var(--ink-faint); }
 sup a.footnote-ref { font-size: 0.7em; }
-.footnote-definition { color: var(--text-dim); font-size: 0.85em; }
+.footnote-definition { color: var(--ink-soft); font-size: 0.85em; }
 img { max-width: 100%; }
 `;
 
@@ -122,6 +126,7 @@ export function PreviewPane() {
   const content = useDocStore((s) => s.content);
   const relPath = useDocStore((s) => s.relPath);
   const theme = useThemeStore((s) => s.theme);
+  const layoutMode = useUiStore((s) => s.layoutMode);
   const [body, setBody] = useState("");
   const [rendering, setRendering] = useState(false);
 
@@ -146,14 +151,14 @@ export function PreviewPane() {
 
   if (!relPath) {
     return (
-      <div className="preview" aria-label="预览">
+      <div className={`preview${layoutMode === "split" ? " preview--split" : ""}`} aria-label="预览">
         <p className="preview__placeholder">打开一篇文档查看预览</p>
       </div>
     );
   }
 
   return (
-    <div className="preview" aria-label="预览">
+    <div className={`preview${layoutMode === "split" ? " preview--split" : ""}`} aria-label="预览">
       {rendering && <span className="preview__spinner" aria-hidden="true" />}
       <iframe
         className="preview__frame"

@@ -115,13 +115,15 @@ export function FileTree() {
             style={{ top: (start + i) * ROW_H }}
           >
             <button
-              className="tree__item"
+              className={`tree__item${row.node.is_dir ? " tree__item--dir" : ""}`}
               style={{ paddingLeft: 8 + row.depth * 14 }}
               onClick={() => (row.node.is_dir ? toggle(row.node) : openDoc(row.node.rel_path))}
               title={row.node.rel_path}
             >
-              <span className="tree__chevron">
-                {row.node.is_dir ? (expanded.has(row.node.rel_path) ? "▾" : "▸") : ""}
+              <span
+                className={`tree__chevron${expanded.has(row.node.rel_path) ? " tree__chevron--open" : ""}`}
+              >
+                {row.node.is_dir ? "▸" : ""}
               </span>
               {row.node.name}
             </button>

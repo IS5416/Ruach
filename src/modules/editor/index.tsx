@@ -51,6 +51,7 @@ export function EditorPane() {
   const save = useDocStore((s) => s.save);
   const dirty = useDocStore((s) => s.dirty);
   const setCursor = useEditorStore((s) => s.setCursor);
+  const hasDoc = useDocStore((s) => s.relPath !== null || s.draftKey !== null);
 
   const { getView } = useCodeMirror(containerRef, content, (doc, cursor) => {
     setCursor(cursor);
@@ -77,6 +78,15 @@ export function EditorPane() {
     const timer = setTimeout(() => void save(), AUTOSAVE_MS);
     return () => clearTimeout(timer);
   }, [dirty, content, save]);
+
+  if (!hasDoc) {
+    return (
+      <div className="empty-state">
+        <p className="empty-state__title">向虚空呼入气息</p>
+        <p className="empty-state__hint">从树中选择一篇文档，或新建一篇草稿</p>
+      </div>
+    );
+  }
 
   return <div ref={containerRef} className="editor" aria-label="编辑器" />;
 }

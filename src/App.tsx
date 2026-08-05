@@ -11,6 +11,7 @@ import { RecoveryBanner } from "./app/RecoveryBanner";
 import { useUiStore } from "./stores/uiStore";
 import { FONT_STACK, useThemeStore } from "./stores/themeStore";
 import { useDocStore } from "./stores/docStore";
+import { useVaultStore } from "./stores/vaultStore";
 import type { LayoutMode } from "./lib/types";
 import "./App.css";
 
@@ -111,6 +112,17 @@ function App() {
     };
   }, []);
 
+  const openVault = async () => {
+    const { open } = await import("@tauri-apps/plugin-dialog");
+    const dir = await open({ directory: true });
+    if (typeof dir === "string") {
+      await useVaultStore.getState().openVault(dir);
+    }
+  };
+
+  const vaultPath = useVaultStore((s) => s.vaultPath);
+  const noVault = !vaultPath;
+
   const immersion = layoutMode === "immersion";
 
   return (
@@ -120,19 +132,22 @@ function App() {
     >
       {!immersion && (
         <header className="topbar">
-          <span className="topbar__title">{docTitle ?? "Ruach"}</span>
-          <div className="topbar__modes" role="group" aria-label="布局模式">
+          <span className={`topbar__title${docTitle ? "" : " topbar__title--empty"}`}>
+            {docTitle ?? "Ruach"}
+          </span>
+          <div className="segmented" role="group" aria-label="布局模式">
             {(Object.keys(MODE_LABEL) as LayoutMode[]).map((mode) => (
-              <Button
+              <button
                 key={mode}
-                active={layoutMode === mode}
+                className={`segmented__btn${layoutMode === mode ? " segmented__btn--active" : ""}`}
                 onClick={() => setLayoutMode(mode)}
               >
                 {MODE_LABEL[mode]}
-              </Button>
+              </button>
             ))}
           </div>
           <div className="topbar__actions">
+            <Button onClick={openVault}>打开 Vault</Button>
             <Button onClick={newDraft}>新建</Button>
             <Button onClick={toggleTree}>{treeVisible ? "藏树" : "树"}</Button>
             <Button active={settingsOpen} onClick={() => setSettingsOpen((v) => !v)}>
@@ -160,6 +175,14 @@ function App() {
           {docError && <div className="error-banner">{docError.message}</div>}
           {settingsOpen && !immersion ? (
             <SettingsPanel />
+          ) : noVault ? (
+            <div className="empty-state">
+              <p className="empty-state__title">打开一个 Vault 开始</p>
+              <p className="empty-state__hint">选择一个存放 Markdown 文档的文件夹</p>
+              <Button variant="primary" onClick={openVault}>
+                打开 Vault
+              </Button>
+            </div>
           ) : (
             <div className="pane-stack">
               {layoutMode !== "preview" && <EditorPane />}

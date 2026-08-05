@@ -1,21 +1,33 @@
 /* Design tokens. Three themes share layout tokens; color/type per theme.
-   Switch via data-theme on the root element. */
+   Switch via data-theme on the root element.
+   Ink hierarchy: strong (titles) / ink (body) / soft (secondary) / faint (hints).
+   Line = hairline dividers. Accent used with restraint. */
 
 :root {
   /* layout */
-  --topbar-h: 40px;
+  --topbar-h: 44px;
+  --tree-w: 224px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
   --radius: 6px;
-  --immersion-width: 720px;
+  --radius-sm: 4px;
+  --immersion-width: 46em;
+
+  /* motion */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-1: 180ms;
+  --dur-2: 320ms;
 
   /* typography (overridden at runtime from AppSettings) */
   --font-preset: var(--font-serif);
   --editor-lh: 1.8;
   --page-w: 720px;
+
+  /* paper breathing room at the bottom of the editor */
+  --breath-bottom: 30vh;
 }
 
 /* ---- 暖纸 warm paper (default) ---- */
@@ -23,11 +35,13 @@
   --bg: #f6f1e7;
   --bg-panel: #efe8d6;
   --bg-raised: #fbf7ee;
-  --text: #3d3629;
-  --text-dim: #6b6150;
-  --text-faint: #b8a98c;
-  --border: #d9cbb0;
-  --accent: #8a6d3b;
+  --ink-strong: #2e2a20;
+  --ink: #3d3629;
+  --ink-soft: #6b6150;
+  --ink-faint: #b8a98c;
+  --line: #ddd0b4;
+  --accent: #7a5c33;
+  --focus-ring: #a8895a;
   --font-serif: Georgia, "Songti SC", "STSong", serif;
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -35,13 +49,15 @@
 /* ---- 冷石 cold stone ---- */
 :root[data-theme="cold_stone"] {
   --bg: #f4f4f3;
-  --bg-panel: #ececea;
+  --bg-panel: #eceae8;
   --bg-raised: #fafafa;
-  --text: #26262a;
-  --text-dim: #55555c;
-  --text-faint: #a3a3a3;
-  --border: #dcdcda;
+  --ink-strong: #1f1f23;
+  --ink: #26262a;
+  --ink-soft: #55555c;
+  --ink-faint: #a3a3a3;
+  --line: #dededa;
   --accent: #4d5a68;
+  --focus-ring: #7b8a99;
   --font-serif: Georgia, "Songti SC", "STSong", serif;
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -51,11 +67,54 @@
   --bg: #211f1b;
   --bg-panel: #26231e;
   --bg-raised: #2b2822;
-  --text: #e8e2d5;
-  --text-dim: #b4ac9c;
-  --text-faint: #8a816f;
-  --border: #3d392f;
+  --ink-strong: #f0e9db;
+  --ink: #e8e2d5;
+  --ink-soft: #b4ac9c;
+  --ink-faint: #8a816f;
+  --line: #3d392f;
   --accent: #c9a86a;
+  --focus-ring: #d9bd85;
   --font-serif: Georgia, "Songti SC", "STSong", serif;
   --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ---- thin theme-aware scrollbars ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- visible keyboard focus ---- */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---- reduced motion: kill transitions & animation ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

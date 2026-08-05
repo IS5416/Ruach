@@ -203,22 +203,29 @@ export function CommandPalette() {
         />
         {entries.length > 0 && (
           <ul className="palette__list" role="listbox">
-            {entries.map((entry, i) => (
-              <li
-                key={entry.key}
-                role="option"
-                aria-selected={i === selected}
-                className={`palette__item${i === selected ? " palette__item--selected" : ""}`}
-                onMouseEnter={() => setSelected(i)}
-                onClick={() => {
-                  setOpen(false);
-                  entry.run();
-                }}
-              >
-                <span className="palette__title">{entry.title}</span>
-                {entry.hint && <span className="palette__hint">{entry.hint}</span>}
-              </li>
-            ))}
+            {entries.map((entry, i) => {
+              const group = entry.key.startsWith("doc:") ? "文档" : "命令";
+              const groupChanged =
+                i === 0 || entries[i - 1].key.startsWith("doc:") !== entry.key.startsWith("doc:");
+              return (
+                <li key={entry.key}>
+                  {groupChanged && <p className="palette__group-label">{group}</p>}
+                  <div
+                    role="option"
+                    aria-selected={i === selected}
+                    className={`palette__item${i === selected ? " palette__item--selected" : ""}`}
+                    onMouseEnter={() => setSelected(i)}
+                    onClick={() => {
+                      setOpen(false);
+                      entry.run();
+                    }}
+                  >
+                    <span className="palette__title">{entry.title}</span>
+                    {entry.hint && <span className="palette__hint">{entry.hint}</span>}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
         {entries.length === 0 && <p className="palette__empty">无结果</p>}
