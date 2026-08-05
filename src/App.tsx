@@ -40,6 +40,19 @@ function App() {
       .catch(() => {});
   }, [setTheme]);
 
+  // Ctrl+E: toggle between edit and immersion writing mode.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        const current = useUiStore.getState().layoutMode;
+        setLayoutMode(current === "immersion" ? "edit" : "immersion");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [setLayoutMode]);
+
   const immersion = layoutMode === "immersion";
 
   return (
@@ -72,6 +85,12 @@ function App() {
       )}
 
       <RecoveryBanner />
+
+      {immersion && (
+        <button className="immersion-exit" onClick={() => setLayoutMode("edit")} title="退出沉浸（Ctrl+E）">
+          退出沉浸
+        </button>
+      )}
 
       <div className="body">
         {treeVisible && !immersion && <FileTree />}

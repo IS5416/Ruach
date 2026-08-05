@@ -5,6 +5,7 @@ use crate::services::db::Database;
 use crate::services::document::{DocOpenResult, DocumentService, SessionDraft, SessionInfo};
 use crate::services::export::{ExportFormat, ExportService};
 use crate::services::index::IndexService;
+use crate::services::render::RenderService;
 use crate::services::search::{SearchHit, SearchService};
 use crate::services::vault::{TreeNode, VaultService};
 use crate::services::window::WindowManager;
@@ -153,8 +154,8 @@ pub fn attach_paste(
 }
 
 #[tauri::command]
-pub fn render_markdown(_content: String) -> Result<String, AppError> {
-    Err(AppError::NotImplemented("render_markdown"))
+pub fn render_markdown(content: String) -> Result<String, AppError> {
+    RenderService::render_markdown(&content)
 }
 
 #[tauri::command]
