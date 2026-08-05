@@ -5,6 +5,8 @@ import type {
   DocOpenResult,
   ExportFormat,
   SearchHit,
+  SessionDraft,
+  SessionInfo,
   TreeNode,
 } from "./types";
 
@@ -26,8 +28,15 @@ export const vaultOpen = (path: string) => ipc<void>("vault_open", { path });
 export const vaultScan = () => ipc<TreeNode[]>("vault_scan");
 
 export const docOpen = (relPath: string) => ipc<DocOpenResult>("doc_open", { relPath });
+/** Returns the new file mtime (baseline for the next autosave). */
 export const docSave = (relPath: string, content: string, expectedMtime?: number) =>
-  ipc<void>("doc_save", { relPath, content, expectedMtime });
+  ipc<number>("doc_save", { relPath, content, expectedMtime });
+
+export const sessionFlush = (docKey: string, content: string, cursor?: number | null) =>
+  ipc<void>("session_flush", { docKey, content, cursor });
+export const sessionList = () => ipc<SessionInfo[]>("session_list");
+export const sessionRestore = (docKey: string) => ipc<SessionDraft>("session_restore", { docKey });
+export const sessionDiscard = (docKey: string) => ipc<void>("session_discard", { docKey });
 
 export const indexFile = (relPath: string) => ipc<void>("index_file", { relPath });
 export const indexReindex = () => ipc<number>("index_reindex");

@@ -37,3 +37,15 @@ export interface AppSettings {
 
 export type LayoutMode = "edit" | "preview" | "split" | "immersion";
 export type ExportFormat = "html" | "pdf";
+
+/** Recovery buffer entry (crash recovery). */
+export interface SessionInfo {
+  doc_key: string;
+  updated_at: number;
+  preview: string;
+}
+
+export interface SessionDraft {
+  content: string;
+  cursor: number | null;
+}

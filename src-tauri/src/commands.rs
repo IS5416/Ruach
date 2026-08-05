@@ -1,20 +1,23 @@
 use crate::error::AppError;
 use crate::services::attachment::{AttachmentResult, AttachmentService};
 use crate::services::config::AppSettings;
-use crate::services::document::{DocOpenResult, DocumentService};
+use crate::services::db::Database;
+use crate::services::document::{DocOpenResult, DocumentService, SessionDraft, SessionInfo};
 use crate::services::export::{ExportFormat, ExportService};
 use crate::services::index::IndexService;
 use crate::services::search::{SearchHit, SearchService};
 use crate::services::vault::{TreeNode, VaultService};
-use crate::services::{db::Database, window::WindowManager};
+use crate::services::window::WindowManager;
 use crate::state::AppState;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 fn with_vault<T>(
     state: &State<'_, AppState>,
-    f: impl FnOnce(&std::path::Path, &Mutex<Option<Database>>) -> Result<T, AppError>,
+    f: impl FnOnce(
+        &std::path::Path,
+        &rusqlite::Connection,
+    ) -> Result<T, AppError>,
 ) -> Result<T, AppError> {
     let vault = state
         .vault
@@ -22,7 +25,21 @@ fn with_vault<T>(
         .expect("vault mutex poisoned")
         .clone()
         .ok_or_else(|| AppError::Vault("no vault open".to_string()))?;
-    f(&vault, &state.db)
+    with_db(state, |conn| f(&vault, conn))
+}
+
+/// Borrow the sidecar connection for the duration of `f`; the guard is
+/// bound to a named local so the borrow outlives the call.
+fn with_db<T>(
+    state: &State<'_, AppState>,
+    f: impl FnOnce(&rusqlite::Connection) -> Result<T, AppError>,
+) -> Result<T, AppError> {
+    let guard = state.db.lock().expect("db mutex poisoned");
+    let db = guard
+        .as_ref()
+        .ok_or_else(|| AppError::Vault("no vault open".to_string()))?;
+    let conn = db.conn();
+    f(&conn)
 }
 
 #[tauri::command]
@@ -36,20 +53,64 @@ pub fn vault_open(state: State<'_, AppState>, path: String) -> Result<(), AppErr
 }
 
 #[tauri::command]
-pub fn doc_open(state: State<'_, AppState>, rel_path: String) -> Result<DocOpenResult, AppError> {
-    with_vault(&state, |vault, _| DocumentService::open(vault, &rel_path))
+pub fn doc_open(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    rel_path: String,
+) -> Result<DocOpenResult, AppError> {
+    let res = with_vault(&state, |vault, _| DocumentService::open(vault, &rel_path))?;
+    let _ = app.emit("doc:opened", &res.meta.rel_path);
+    Ok(res)
 }
 
 #[tauri::command]
 pub fn doc_save(
+    app: AppHandle,
     state: State<'_, AppState>,
     rel_path: String,
     content: String,
     expected_mtime: Option<i64>,
+) -> Result<i64, AppError> {
+    let res = with_vault(&state, |vault, conn| {
+        DocumentService::save(conn, vault, &rel_path, &content, expected_mtime)
+    });
+    if res.is_ok() {
+        let _ = app.emit("doc:changed", &rel_path);
+    }
+    res
+}
+
+#[tauri::command]
+pub fn session_flush(
+    state: State<'_, AppState>,
+    doc_key: String,
+    content: String,
+    cursor: Option<i64>,
 ) -> Result<(), AppError> {
-    with_vault(&state, |vault, _| {
-        DocumentService::save(vault, &rel_path, &content, expected_mtime)
+    with_db(&state, |conn| {
+        DocumentService::session_flush(conn, &doc_key, &content, cursor)
     })
+}
+
+#[tauri::command]
+pub fn session_list(state: State<'_, AppState>) -> Result<Vec<SessionInfo>, AppError> {
+    with_db(&state, |conn| DocumentService::session_list(conn))
+}
+
+#[tauri::command]
+pub fn session_restore(
+    state: State<'_, AppState>,
+    doc_key: String,
+) -> Result<SessionDraft, AppError> {
+    with_db(&state, |conn| DocumentService::session_restore(conn, &doc_key))
+}
+
+#[tauri::command]
+pub fn session_discard(
+    state: State<'_, AppState>,
+    doc_key: String,
+) -> Result<(), AppError> {
+    with_db(&state, |conn| DocumentService::session_discard(conn, &doc_key))
 }
 
 #[tauri::command]
@@ -99,7 +160,7 @@ pub fn export_document(
 
 #[tauri::command]
 pub fn window_create(
-    app: tauri::AppHandle,
+    app: AppHandle,
     rel_path: Option<String>,
 ) -> Result<(), AppError> {
     WindowManager::create_window(&app, rel_path.as_deref())

@@ -6,6 +6,7 @@ import { FileTree } from "./modules/tree";
 import { CommandPalette } from "./modules/command";
 import { TabStrip } from "./modules/tabs";
 import { SettingsPanel } from "./modules/settings";
+import { RecoveryBanner } from "./app/RecoveryBanner";
 import { useUiStore } from "./stores/uiStore";
 import { useThemeStore } from "./stores/themeStore";
 import { useDocStore } from "./stores/docStore";
@@ -28,6 +29,7 @@ function App() {
   const setTheme = useThemeStore((s) => s.setTheme);
   const docTitle = useDocStore((s) => s.meta?.title);
   const docError = useDocStore((s) => s.error);
+  const newDraft = useDocStore((s) => s.newDraft);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Load persisted settings once on mount (P7 wires the rest).
@@ -60,6 +62,7 @@ function App() {
             ))}
           </div>
           <div className="topbar__actions">
+            <Button onClick={newDraft}>新建</Button>
             <Button onClick={toggleTree}>{treeVisible ? "藏树" : "树"}</Button>
             <Button active={settingsOpen} onClick={() => setSettingsOpen((v) => !v)}>
               设置
@@ -67,6 +70,8 @@ function App() {
           </div>
         </header>
       )}
+
+      <RecoveryBanner />
 
       <div className="body">
         {treeVisible && !immersion && <FileTree />}
