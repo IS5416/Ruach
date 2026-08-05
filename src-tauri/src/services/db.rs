@@ -28,7 +28,13 @@ pub struct Database {
 
 impl Database {
     /// Open (creating if needed) a vault sidecar database at `path`.
+    /// SQLite won't create parent directories — a brand-new vault has no
+    /// `.ruach/` yet, so create it here.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, AppError> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         let conn = Connection::open(path)?;
         init_schema(&conn)?;
         Ok(Self { conn: Mutex::new(conn) })

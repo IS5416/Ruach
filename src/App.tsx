@@ -34,6 +34,7 @@ function App() {
   const pageWidth = useThemeStore((s) => s.pageWidth);
   const docTitle = useDocStore((s) => s.meta?.title);
   const docError = useDocStore((s) => s.error);
+  const vaultError = useVaultStore((s) => s.error);
   const newDraft = useDocStore((s) => s.newDraft);
   const status = useUiStore((s) => s.status);
   const setStatus = useUiStore((s) => s.setStatus);
@@ -215,6 +216,11 @@ function App() {
 
         <main className="main">
           {!immersion && <TabStrip />}
+          {vaultError && (
+            <div className="error-banner" role="alert">
+              <span className="error-banner__text">{vaultError.message}</span>
+            </div>
+          )}
           {docError && (
             <div className="error-banner" role="alert">
               <span className="error-banner__text">{docError.message}</span>
