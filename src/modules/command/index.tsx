@@ -45,6 +45,17 @@ const COMMANDS: Command[] = [
     title: "显示/隐藏文件树",
     run: () => useUiStore.getState().toggleTree(),
   },
+  {
+    id: "new-window",
+    title: "在新窗口打开当前文档",
+    hint: "Ctrl+Shift+N",
+    run: () => {
+      const relPath = useDocStore.getState().relPath;
+      void import("../../lib/ipc").then(({ windowCreate }) =>
+        windowCreate(relPath ?? undefined),
+      );
+    },
+  },
 ];
 
 interface Entry {

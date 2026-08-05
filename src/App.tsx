@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { Button } from "./components/Button";
 import { EditorPane } from "./modules/editor";
 import { PreviewPane } from "./modules/preview";
@@ -40,8 +41,8 @@ function App() {
       .catch(() => {});
   }, [setTheme]);
 
-  // Ctrl+E: toggle between edit and immersion writing mode.
-  // Ctrl+P: open the command palette.
+  // Ctrl+E: toggle edit/immersion. Ctrl+P: command palette.
+  // Ctrl+Shift+N: open a new window with the current doc.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
@@ -52,11 +53,40 @@ function App() {
       } else if (e.ctrlKey && key === "p") {
         e.preventDefault();
         useUiStore.getState().setCommandPaletteOpen(true);
+      } else if (e.ctrlKey && e.shiftKey && key === "n") {
+        e.preventDefault();
+        const relPath = useDocStore.getState().relPath;
+        void import("./lib/ipc").then(({ windowCreate }) => windowCreate(relPath ?? undefined));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [setLayoutMode]);
+
+  // New windows carry ?doc=<rel_path> in their URL — open it on mount.
+  useEffect(() => {
+    const doc = new URLSearchParams(window.location.search).get("doc");
+    if (doc) void useDocStore.getState().openDoc(doc);
+  }, []);
+
+  // Cross-window sync: reload the doc when another window saved it.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let disposed = false;
+    void listen<string>("doc:changed", (event) => {
+      const { relPath, dirty } = useDocStore.getState();
+      if (event.payload === relPath && !dirty) {
+        void useDocStore.getState().openDoc(relPath);
+      }
+    }).then((fn) => {
+      if (disposed) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   const immersion = layoutMode === "immersion";
 
